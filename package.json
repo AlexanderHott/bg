@@ -6,24 +6,27 @@
     "dev": "vp dev --port 3000",
     "generate-routes": "tsr generate",
     "build": "vp build",
+    "test": "vp test",
+    "lint": "vp check",
     "start": "node .output/server/index.mjs",
+    "typecheck": "tsc --noEmit",
     "preview": "vp preview"
   },
   "dependencies": {
-    "@tailwindcss/vite": "^4.1.18",
+    "@tailwindcss/vite": "^4.3.3",
     "@tanstack/solid-router": "latest",
     "@tanstack/solid-router-devtools": "latest",
     "@tanstack/solid-start": "latest",
     "nitro": "3.0.260610-beta",
-    "solid-js": "^1.9.12",
-    "tailwindcss": "^4.1.18"
+    "solid-js": "^1.9.15",
+    "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
     "@tanstack/devtools-vite": "latest",
-    "@tanstack/router-cli": "^1.133.21",
-    "typescript": "^6.0.2",
+    "@tanstack/router-cli": "^1.167.33",
+    "typescript": "^7.0.2",
     "vite": "catalog:",
-    "vite-plugin-solid": "^2.11.12",
+    "vite-plugin-solid": "^2.11.14",
     "vite-plus": "catalog:"
   },
   "packageManager": "pnpm@11.24.0"

@@ -1,0 +1,31 @@
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  code-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: voidzero-dev/setup-vp@v1.18.0
+        with:
+          node-version: "24"
+          cache: true
+      - run: vp install
+
+      - name: Lint Code
+        run: vp run lint
+
+      - name: Typecheck Code
+        run: vp run typecheck
+
+      - name: Test code
+        run: vp run test
+
+      - name: Build code
+        run: vp run build
