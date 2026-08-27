@@ -8,7 +8,9 @@ import solidPlugin from "vite-plugin-solid";
 import { nitro } from "nitro/vite";
 
 export default defineConfig({
-  fmt: {},
+  fmt: {
+    ignorePatterns: ["**/routeTree.gen.ts"],
+  },
   lint: {
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     rules: { "vite-plus/prefer-vite-plus-imports": "error" },
