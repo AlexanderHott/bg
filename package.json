@@ -17,13 +17,19 @@
     "@tanstack/solid-router": "latest",
     "@tanstack/solid-router-devtools": "latest",
     "@tanstack/solid-start": "latest",
+    "dotenv": "^17.4.2",
+    "drizzle-orm": "1.0.0-rc.4",
     "nitro": "3.0.260610-beta",
+    "pg": "^8.23.0",
     "solid-js": "^1.9.15",
-    "tailwindcss": "^4.3.3"
+    "tailwindcss": "^4.3.3",
+    "valibot": "^1.4.2"
   },
   "devDependencies": {
     "@tanstack/devtools-vite": "latest",
     "@tanstack/router-cli": "^1.167.33",
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "1.0.0-rc.4",
     "typescript": "^7.0.2",
     "vite": "catalog:",
     "vite-plugin-solid": "^2.11.14",
