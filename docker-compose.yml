@@ -8,3 +8,23 @@ services:
       NODE_ENV: production
     expose:
       - "3000"
+    networks:
+      - app
+
+  postgres:
+    image: postgres:18-alpine3.24
+    restart: unless-stopped
+    shm_size: 128mb
+    environment:
+      POSTGRES_DB: bg
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    networks:
+      - app
+
+volumes:
+  postgres_data:
+
+networks:
+  app:
