@@ -1,12 +1,12 @@
 {
   "include": ["**/*.ts", "**/*.tsx"],
   "compilerOptions": {
-    "target": "ES2022",
+    "target": "ESNEXT",
     "jsx": "preserve",
     "jsxImportSource": "solid-js",
     "module": "ESNext",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["vite/client"],
+    "lib": ["ESNEXT", "ES2017.TypedArrays", "DOM", "DOM.Iterable"],
+    "types": ["node", "vite/client"],
 
     /* Bundler mode */
     "moduleResolution": "bundler",
@@ -20,6 +20,10 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+    "noUncheckedSideEffectImports": true,
+
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   }
 }

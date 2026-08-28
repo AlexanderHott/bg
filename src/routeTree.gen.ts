@@ -10,33 +10,63 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as SecretRouteImport } from './routes/secret'
+import { Route as SignUpRouteImport } from './routes/sign-up'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SecretRoute = SecretRouteImport.update({
+  id: '/secret',
+  path: '/secret',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignUpRoute = SignUpRouteImport.update({
+  id: '/sign-up',
+  path: '/sign-up',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/secret': typeof SecretRoute
+  '/sign-up': typeof SignUpRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/secret': typeof SecretRoute
+  '/sign-up': typeof SignUpRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/secret': typeof SecretRoute
+  '/sign-up': typeof SignUpRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/login' | '/secret' | '/sign-up'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/login' | '/secret' | '/sign-up'
+  id: '__root__' | '/' | '/login' | '/secret' | '/sign-up'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  LoginRoute: typeof LoginRoute
+  SecretRoute: typeof SecretRoute
+  SignUpRoute: typeof SignUpRoute
 }
 
 declare module '@tanstack/solid-router' {
@@ -48,11 +78,35 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/secret': {
+      id: '/secret'
+      path: '/secret'
+      fullPath: '/secret'
+      preLoaderRoute: typeof SecretRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sign-up': {
+      id: '/sign-up'
+      path: '/sign-up'
+      fullPath: '/sign-up'
+      preLoaderRoute: typeof SignUpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  LoginRoute: LoginRoute,
+  SecretRoute: SecretRoute,
+  SignUpRoute: SignUpRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
