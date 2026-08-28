@@ -1,5 +1,6 @@
-import { cn } from "@/lib/cn";
 import { splitProps, type JSX } from "solid-js";
+
+import { cn } from "@/lib/cn";
 
 type CardProps = JSX.IntrinsicElements["div"] & {
   size?: "default" | "sm";

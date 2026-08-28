@@ -1,6 +1,7 @@
 import { createMiddleware } from "@tanstack/solid-start";
-import { getSession } from "./lib/auth";
 import { getCookie } from "@tanstack/solid-start/server";
+
+import { getSession } from "./lib/auth";
 import { parseSessionToken, SESSION_TOKEN_COOKIE_NAME } from "./lib/sessionToken";
 
 export const authMiddleware = createMiddleware({

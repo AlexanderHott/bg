@@ -1,7 +1,8 @@
-import { Button } from "@/components/ui/Button";
-import { getSessionFn, signOutFn } from "@/modules/auth/serverFunctions";
 import { createFileRoute, Link, Outlet, redirect, useNavigate } from "@tanstack/solid-router";
 import { useServerFn } from "@tanstack/solid-start";
+
+import { Button } from "@/components/ui/Button";
+import { getSessionFn, signOutFn } from "@/modules/auth/serverFunctions";
 
 export const Route = createFileRoute("/_app")({
   component: RouteComponent,
@@ -23,8 +24,8 @@ function RouteComponent() {
   const navigate = useNavigate();
   return (
     <div>
-      <nav class="p-4 flex items-center justify-between">
-        <div class="flex gap-4 items-center ">
+      <nav class="flex items-center justify-between p-4">
+        <div class="flex items-center gap-4">
           <Link class="underline" to="/">
             home
           </Link>

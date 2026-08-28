@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/solid-start";
-import { signUp, signIn, signOut, getSession, listActiveSessions } from "./lib/auth";
 import {
   deleteCookie,
   getCookie,
@@ -9,6 +8,8 @@ import {
   setCookie,
 } from "@tanstack/solid-start/server";
 import * as v from "valibot";
+
+import { signUp, signIn, signOut, getSession, listActiveSessions } from "./lib/auth";
 import {
   formatSessionToken,
   parseSessionToken,

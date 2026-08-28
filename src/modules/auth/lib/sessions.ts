@@ -1,5 +1,3 @@
-import type * as authSchema from "../schema";
-import type { SessionToken } from "./sessionToken";
 import { constantTimeCompare, secureRandomBytes, sha256Hash } from "./crypto";
 
 export interface CreateSessionOptions {
@@ -22,21 +20,22 @@ export async function createSession(options: CreateSessionOptions) {
 }
 
 export interface ValidateSessionOptions {
-  session: authSchema.Session;
-  sessionToken: SessionToken;
-  nowMs: number;
+  secret: string;
+  secretHash: string;
+  expiresAt: Date;
+  now: Date;
 }
 export async function validateSession(options: ValidateSessionOptions) {
-  if (options.nowMs >= options.session.expiresAt.getTime()) {
+  if (options.now.getTime() >= options.expiresAt.getTime()) {
     return false;
   }
 
-  const sessionSecretActualBuffer = Uint8Array.fromBase64(options.sessionToken.secret, {
+  const sessionSecretActualBuffer = Uint8Array.fromBase64(options.secret, {
     alphabet: "base64url",
   });
   const sessionSecretActualHashBuffer = await sha256Hash(sessionSecretActualBuffer);
 
-  const sessionSecretExpectedHashStr = options.session.secretHash;
+  const sessionSecretExpectedHashStr = options.secretHash;
   const sessionSecretExpectedHashBuffer = Uint8Array.fromBase64(sessionSecretExpectedHashStr, {
     alphabet: "base64url",
   });
@@ -44,8 +43,6 @@ export async function validateSession(options: ValidateSessionOptions) {
   if (!constantTimeCompare(sessionSecretActualHashBuffer, sessionSecretExpectedHashBuffer)) {
     return false;
   }
-
-  // TODO: maybe extend session lifetime
 
   return true;
 }

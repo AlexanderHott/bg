@@ -1,14 +1,15 @@
-import { defineConfig, lazyPlugins } from "vite-plus";
-import { devtools } from "@tanstack/devtools-vite";
 import tailwindcss from "@tailwindcss/vite";
-
+import { devtools } from "@tanstack/devtools-vite";
 import { tanstackStart } from "@tanstack/solid-start/plugin/vite";
-
-import solidPlugin from "vite-plugin-solid";
 import { nitro } from "nitro/vite";
+import solidPlugin from "vite-plugin-solid";
+import { defineConfig, lazyPlugins } from "vite-plus";
 
 export default defineConfig({
   fmt: {
+    sortImports: true,
+    sortPackageJson: true,
+    sortTailwindcss: true,
     ignorePatterns: ["**/routeTree.gen.ts"],
   },
   lint: {

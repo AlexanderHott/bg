@@ -1,6 +1,9 @@
+import { createForm, formOptions } from "@tanstack/solid-form";
+import { Link } from "@tanstack/solid-router";
 import { useServerFn } from "@tanstack/solid-start";
 import { createSignal, Show } from "solid-js";
-import { signUpFn } from "../serverFunctions";
+import * as v from "valibot";
+
 import { Button } from "@/components/ui/Button";
 import {
   TextField,
@@ -8,9 +11,8 @@ import {
   TextFieldInput,
   TextFieldLabel,
 } from "@/components/ui/TextField";
-import { createForm, formOptions } from "@tanstack/solid-form";
-import * as v from "valibot";
-import { Link } from "@tanstack/solid-router";
+
+import { signUpFn } from "../serverFunctions";
 import { PasswordValidator, UsernameValidator } from "../validators";
 
 interface SignupFormData {
@@ -51,7 +53,7 @@ export function SignupForm() {
   }));
 
   return (
-    <div class="flex flex-col gap-4 max-w-sm">
+    <div class="flex max-w-sm flex-col gap-4">
       <div>sign up</div>
       <form
         onSubmit={(e) => {

@@ -1,10 +1,13 @@
-import { db } from "@/db";
-import * as authSchema from "../schema";
 import { randomUUIDv7 } from "node:crypto";
+
+import { and, eq } from "drizzle-orm";
+
+import { db } from "@/db";
+
+import * as authSchema from "../schema";
+import { argon2Hash, argon2Verify } from "./crypto";
 import { createSession, validateSession } from "./sessions";
 import { type SessionToken } from "./sessionToken";
-import { argon2Hash, argon2Verify } from "./crypto";
-import { and, eq } from "drizzle-orm";
 
 export interface SignUpOptions {
   username: string;
@@ -104,9 +107,10 @@ export async function getSession(options: GetSessionOptions) {
   }
 
   const sessionIsValid = await validateSession({
-    session,
-    sessionToken: options.sessionToken,
-    nowMs: Date.now(),
+    secret: options.sessionToken.secret,
+    secretHash: session.secretHash,
+    expiresAt: session.expiresAt,
+    now: new Date(),
   });
   if (!sessionIsValid) {
     options.signal?.throwIfAborted();

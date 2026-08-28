@@ -1,5 +1,6 @@
-import { hash, verify } from "@node-rs/argon2";
 import { timingSafeEqual } from "node:crypto";
+
+import { hash, verify } from "@node-rs/argon2";
 
 export type Bytes = Uint8Array<ArrayBuffer>;
 
@@ -55,16 +56,6 @@ export async function argon2Hash(password: string, signal?: AbortSignal) {
 }
 
 export async function argon2Verify(hashed: string, password: string, signal?: AbortSignal) {
-  const equal = await verify(
-    hashed,
-    password,
-    {
-      algorithm: Algorithm.Argon2id,
-      memoryCost: 19456,
-      timeCost: 2,
-      parallelism: 1,
-    },
-    signal,
-  );
+  const equal = await verify(hashed, password, undefined, signal);
   return equal;
 }

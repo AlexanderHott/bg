@@ -1,3 +1,7 @@
+import { createFileRoute, useRouter } from "@tanstack/solid-router";
+import { useServerFn } from "@tanstack/solid-start";
+import { For, Show } from "solid-js";
+
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Sensitive } from "@/components/ui/Sensitive";
@@ -10,9 +14,6 @@ import {
   TableRow,
 } from "@/components/ui/Table";
 import { listActiveSessionsFn, revokeSessionFn } from "@/modules/auth/serverFunctions";
-import { createFileRoute, useRouter } from "@tanstack/solid-router";
-import { useServerFn } from "@tanstack/solid-start";
-import { For, Show } from "solid-js";
 
 export const Route = createFileRoute("/_app/settings")({
   component: RouteComponent,
@@ -24,7 +25,7 @@ export const Route = createFileRoute("/_app/settings")({
 
 function RouteComponent() {
   return (
-    <div class="p-4 flex flex-col">
+    <div class="flex flex-col p-4">
       <ActiveSessions />
     </div>
   );

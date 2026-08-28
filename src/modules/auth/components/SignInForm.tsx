@@ -1,16 +1,18 @@
+import { createForm, formOptions } from "@tanstack/solid-form";
+import { Link, useNavigate } from "@tanstack/solid-router";
 import { useServerFn } from "@tanstack/solid-start";
-import { signInFn } from "../serverFunctions";
+import * as v from "valibot";
+
 import { Button } from "@/components/ui/Button";
+import { Separator } from "@/components/ui/Separator";
 import {
   TextField,
   TextFieldErrorMessage,
   TextFieldInput,
   TextFieldLabel,
 } from "@/components/ui/TextField";
-import { createForm, formOptions } from "@tanstack/solid-form";
-import * as v from "valibot";
-import { Separator } from "@/components/ui/Separator";
-import { Link, useNavigate } from "@tanstack/solid-router";
+
+import { signInFn } from "../serverFunctions";
 import { PasswordValidator, UsernameValidator } from "../validators";
 
 interface LoginFormData {
@@ -48,7 +50,7 @@ export function SignInForm() {
   }));
 
   return (
-    <div class="flex flex-col gap-4 max-w-sm">
+    <div class="flex max-w-sm flex-col gap-4">
       <div>sign in</div>
       <form
         onSubmit={(e) => {
