@@ -4,11 +4,13 @@ import { randomUUIDv7 } from "node:crypto";
 import { createSession, validateSession } from "./sessions";
 import { type SessionToken } from "./sessionToken";
 import { argon2Hash, argon2Verify } from "./crypto";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 export interface SignUpOptions {
   username: string;
   password: string;
+  userAgent?: string;
+  ip?: string;
   signal?: AbortSignal;
 }
 export async function signUp(options: SignUpOptions) {
@@ -28,6 +30,8 @@ export async function signUp(options: SignUpOptions) {
 export interface SignInOptions {
   username: string;
   password: string;
+  userAgent?: string;
+  ip?: string;
   signal?: AbortSignal;
 }
 export async function signIn(options: SignInOptions) {
@@ -42,33 +46,48 @@ export async function signIn(options: SignInOptions) {
     return undefined;
   }
 
-  const { session, secret } = await createSession({
-    userId: user.id,
+  const { secret, secretHash, expiresAt } = await createSession({
     nowMs: Date.now(),
   });
 
   options.signal?.throwIfAborted();
-  await db.insert(authSchema.sessions).values(session);
+  const sessionId = randomUUIDv7();
+  await db.insert(authSchema.sessions).values({
+    id: sessionId,
+    expiresAt,
+    secretHash,
+    userAgent: options.userAgent,
+    ip: options.ip,
+    userId: user.id,
+  });
 
   const sessionToken = {
-    id: session.id,
+    id: sessionId,
     secret,
   };
 
   return {
     userId: user.id,
-    sessionId: session.id,
+    sessionId,
     sessionToken,
   };
 }
 
 export interface SignOutOptions {
   sessionId: string;
+  userId: string;
   signal?: AbortSignal;
 }
 export async function signOut(options: SignOutOptions) {
   options.signal?.throwIfAborted();
-  await db.delete(authSchema.sessions).where(eq(authSchema.sessions.id, options.sessionId));
+  await db
+    .delete(authSchema.sessions)
+    .where(
+      and(
+        eq(authSchema.sessions.id, options.sessionId),
+        eq(authSchema.sessions.userId, options.userId),
+      ),
+    );
 }
 
 export interface GetSessionOptions {
@@ -99,4 +118,18 @@ export async function getSession(options: GetSessionOptions) {
     sessionId: session.id,
     userId: session.userId,
   };
+}
+
+export interface ListActiveSessionsOptions {
+  userId: string;
+  signal?: AbortSignal;
+}
+export async function listActiveSessions(options: ListActiveSessionsOptions) {
+  options.signal?.throwIfAborted();
+  const activeSessions = await db.query.sessions.findMany({
+    where: { userId: options.userId, expiresAt: { gt: new Date() } },
+    orderBy: { expiresAt: "desc" },
+  });
+
+  return activeSessions;
 }

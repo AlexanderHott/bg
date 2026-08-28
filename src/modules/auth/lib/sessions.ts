@@ -1,15 +1,11 @@
-import { randomUUIDv7 } from "node:crypto";
 import type * as authSchema from "../schema";
 import type { SessionToken } from "./sessionToken";
 import { constantTimeCompare, secureRandomBytes, sha256Hash } from "./crypto";
 
 export interface CreateSessionOptions {
-  userId: string;
   nowMs: number;
 }
 export async function createSession(options: CreateSessionOptions) {
-  const id = randomUUIDv7();
-
   const secretBuffer = secureRandomBytes(32);
   const secretStr = secretBuffer.toBase64({ alphabet: "base64url" });
 
@@ -19,13 +15,9 @@ export async function createSession(options: CreateSessionOptions) {
   const expiresAt = options.nowMs + 1000 * 60 * 60 * 24 * 30;
 
   return {
-    session: {
-      id,
-      userId: options.userId,
-      secretHash: secretHashStr,
-      expiresAt: new Date(expiresAt),
-    },
     secret: secretStr,
+    secretHash: secretHashStr,
+    expiresAt: new Date(expiresAt),
   };
 }
 

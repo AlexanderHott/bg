@@ -62,7 +62,12 @@ export const sessions = pgTable(
       .notNull()
       .references(() => users.id),
     secretHash: text("secret_hash").notNull(),
+
+    ip: text("ip"),
+    userAgent: text("user_agent"),
+
     expiresAt: timestamp("expires_at", timestampConfig).notNull(),
+    lastActiveAt: timestamp("last_active_at", timestampConfig).notNull().defaultNow(),
     createdAt: timestamp("created_at", timestampConfig).notNull().defaultNow(),
   },
   (table) => [index("idx_sessions_user_id").on(table.userId)],

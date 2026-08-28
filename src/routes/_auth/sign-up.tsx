@@ -1,7 +1,7 @@
-import { SignInForm as LoginForm } from "@/modules/auth/components/SignInForm";
+import { SignupForm } from "@/modules/auth/components/SignUpForm";
 import { createFileRoute } from "@tanstack/solid-router";
 
-export const Route = createFileRoute("/sign-in")({
+export const Route = createFileRoute("/_auth/sign-up")({
   component: RouteComponent,
 });
 
@@ -9,7 +9,7 @@ function RouteComponent() {
   return (
     <div class="h-full flex items-center justify-center">
       <div class="max-w-sm grow">
-        <LoginForm />
+        <SignupForm />
       </div>
     </div>
   );

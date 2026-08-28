@@ -5,7 +5,6 @@ export const Route = createFileRoute("/_app/secret")({
   component: RouteComponent,
   loader: async () => {
     const data = await getSecretDataFn();
-    console.log("route loader", data);
     return data;
   },
 });
