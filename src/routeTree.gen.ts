@@ -9,24 +9,19 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as SecretRouteImport } from './routes/secret'
+import { Route as AppRouteImport } from './routes/_app'
+import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
+import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppSecretRouteImport } from './routes/_app/secret'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SecretRoute = SecretRouteImport.update({
-  id: '/secret',
-  path: '/secret',
+const SignInRoute = SignInRouteImport.update({
+  id: '/sign-in',
+  path: '/sign-in',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignUpRoute = SignUpRouteImport.update({
@@ -34,62 +29,65 @@ const SignUpRoute = SignUpRouteImport.update({
   path: '/sign-up',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSecretRoute = AppSecretRouteImport.update({
+  id: '/secret',
+  path: '/secret',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/login': typeof LoginRoute
-  '/secret': typeof SecretRoute
+  '/': typeof AppIndexRoute
+  '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/secret': typeof AppSecretRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/login': typeof LoginRoute
-  '/secret': typeof SecretRoute
+  '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/secret': typeof AppSecretRoute
+  '/': typeof AppIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/login': typeof LoginRoute
-  '/secret': typeof SecretRoute
+  '/_app': typeof AppRouteWithChildren
+  '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/_app/secret': typeof AppSecretRoute
+  '/_app/': typeof AppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/secret' | '/sign-up'
+  fullPaths: '/' | '/sign-in' | '/sign-up' | '/secret'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/secret' | '/sign-up'
-  id: '__root__' | '/' | '/login' | '/secret' | '/sign-up'
+  to: '/sign-in' | '/sign-up' | '/secret' | '/'
+  id: '__root__' | '/_app' | '/sign-in' | '/sign-up' | '/_app/secret' | '/_app/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  LoginRoute: typeof LoginRoute
-  SecretRoute: typeof SecretRoute
+  AppRoute: typeof AppRouteWithChildren
+  SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
 }
 
 declare module '@tanstack/solid-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
+    '/_app': {
+      id: '/_app'
+      path: ''
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+      preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/secret': {
-      id: '/secret'
-      path: '/secret'
-      fullPath: '/secret'
-      preLoaderRoute: typeof SecretRouteImport
+    '/sign-in': {
+      id: '/sign-in'
+      path: '/sign-in'
+      fullPath: '/sign-in'
+      preLoaderRoute: typeof SignInRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sign-up': {
@@ -99,13 +97,38 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof SignUpRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/': {
+      id: '/_app/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/secret': {
+      id: '/_app/secret'
+      path: '/secret'
+      fullPath: '/secret'
+      preLoaderRoute: typeof AppSecretRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
+interface AppRouteChildren {
+  AppSecretRoute: typeof AppSecretRoute
+  AppIndexRoute: typeof AppIndexRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppSecretRoute: AppSecretRoute,
+  AppIndexRoute: AppIndexRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  LoginRoute: LoginRoute,
-  SecretRoute: SecretRoute,
+  AppRoute: AppRouteWithChildren,
+  SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
 }
 export const routeTree = rootRouteImport

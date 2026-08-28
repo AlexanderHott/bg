@@ -1,7 +1,7 @@
-import { LoginForm } from "@/modules/auth/components/SignupForm";
+import { SignInForm as LoginForm } from "@/modules/auth/components/SignInForm";
 import { createFileRoute } from "@tanstack/solid-router";
 
-export const Route = createFileRoute("/login")({
+export const Route = createFileRoute("/sign-in")({
   component: RouteComponent,
 });
 

@@ -1,4 +1,4 @@
-import { SignupForm } from "@/modules/auth/components/SignupForm";
+import { SignupForm } from "@/modules/auth/components/SignUpForm";
 import { createFileRoute } from "@tanstack/solid-router";
 
 export const Route = createFileRoute("/sign-up")({
