@@ -1,11 +1,11 @@
 {
   "include": ["**/*.ts", "**/*.tsx"],
   "compilerOptions": {
-    "target": "ESNEXT",
+    "target": "ESNext",
     "jsx": "preserve",
     "jsxImportSource": "solid-js",
     "module": "ESNext",
-    "lib": ["ESNEXT", "ES2017.TypedArrays", "DOM", "DOM.Iterable"],
+    "lib": ["ESNext", "ES2017.TypedArrays", "DOM", "DOM.Iterable"],
     "types": ["node", "vite/client"],
 
     /* Bundler mode */

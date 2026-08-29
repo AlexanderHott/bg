@@ -1,6 +1,6 @@
 ## up next
 
-- [ ] passkeys
+- [x] passkeys
 - [ ] organizations
 - [ ] invites
 - [ ] improve auth forms
@@ -13,3 +13,4 @@
 - [ ] add ratelimiter
 - [ ] totp 2fa
 - [ ] backup codes
+- [ ] vendor clsx, class-variance-authority, bowser

@@ -1,6 +1,6 @@
 import { createFileRoute, useRouter } from "@tanstack/solid-router";
 import { useServerFn } from "@tanstack/solid-start";
-import { For, Show } from "solid-js";
+import { createSignal, For, Show } from "solid-js";
 
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -13,20 +13,31 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/Table";
-import { listActiveSessionsFn, revokeSessionFn } from "@/modules/auth/serverFunctions";
+import { registerPasskey } from "@/modules/auth/lib/webauthn/browser";
+import {
+  beginPasskeyRegistrationFn,
+  finishPasskeyRegistrationFn,
+  listActiveSessionsFn,
+  listPasskeysFn,
+  revokeSessionFn,
+} from "@/modules/auth/serverFunctions";
 
 export const Route = createFileRoute("/_app/settings")({
   component: RouteComponent,
   loader: async ({ context: { sessionId } }) => {
-    const activeSessions = await listActiveSessionsFn();
-    return { activeSessions, sessionId };
+    const [activeSessions, passkeys] = await Promise.all([
+      listActiveSessionsFn(),
+      listPasskeysFn(),
+    ]);
+    return { activeSessions, passkeys, sessionId };
   },
 });
 
 function RouteComponent() {
   return (
-    <div class="flex flex-col p-4">
+    <div class="flex flex-col gap-4 p-4">
       <ActiveSessions />
+      <Passkeys />
     </div>
   );
 }
@@ -85,6 +96,80 @@ function SessionsTable() {
                   </Button>
                 </Show>
               </TableCell>
+            </TableRow>
+          )}
+        </For>
+      </TableBody>
+    </Table>
+  );
+}
+
+function Passkeys() {
+  const beginRegistration = useServerFn(beginPasskeyRegistrationFn);
+  const finishRegistration = useServerFn(finishPasskeyRegistrationFn);
+  const [isRegistrationPending, setIsRegistrationPending] = createSignal(false);
+  const router = useRouter();
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>passkeys</CardTitle>
+      </CardHeader>
+      <CardContent class="flex flex-col gap-4">
+        <PasskeysTable />
+        <Button
+          class="w-min"
+          type="button"
+          disabled={isRegistrationPending()}
+          onClick={async () => {
+            setIsRegistrationPending(true);
+            try {
+              const { ceremonyId, options } = await beginRegistration();
+              const credentialResult = await registerPasskey(options);
+              if (!credentialResult.ok) {
+                throw new Error("Could not create a passkey credential", {
+                  cause: credentialResult.error,
+                });
+              }
+              await finishRegistration({
+                data: { ceremonyId, credential: credentialResult.value },
+              });
+              await router.invalidate({
+                filter: (match) => match.routeId === Route.id,
+              });
+            } finally {
+              setIsRegistrationPending(false);
+            }
+          }}
+        >
+          {isRegistrationPending() ? "..." : "[ create passkey ]"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+function PasskeysTable() {
+  const data = Route.useLoaderData();
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>created at</TableHead>
+          <TableHead>backed up</TableHead>
+          <TableHead>backup eligible</TableHead>
+          <TableHead>sign count</TableHead>
+          <TableHead>transports</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        <For each={data().passkeys}>
+          {(passkey) => (
+            <TableRow>
+              <TableCell>{passkey.createdAt.toLocaleString()}</TableCell>
+              <TableCell>{passkey.backedUp ? "yes" : "no"}</TableCell>
+              <TableCell>{passkey.backupEligible ? "yes" : "no"}</TableCell>
+              <TableCell>{passkey.signCount}</TableCell>
+              <TableCell>{passkey.transports.join(", ")}</TableCell>
             </TableRow>
           )}
         </For>

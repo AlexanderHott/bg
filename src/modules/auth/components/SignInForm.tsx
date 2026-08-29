@@ -1,6 +1,7 @@
 import { createForm, formOptions } from "@tanstack/solid-form";
 import { Link, useNavigate } from "@tanstack/solid-router";
 import { useServerFn } from "@tanstack/solid-start";
+import { createSignal } from "solid-js";
 import * as v from "valibot";
 
 import { Button } from "@/components/ui/Button";
@@ -12,7 +13,8 @@ import {
   TextFieldLabel,
 } from "@/components/ui/TextField";
 
-import { signInFn } from "../serverFunctions";
+import { authenticateWithPasskey } from "../lib/webauthn/browser";
+import { beginPasskeyAuthFn, finishPasskeyAuthFn, signInFn } from "../serverFunctions";
 import { PasswordValidator, UsernameValidator } from "../validators";
 
 interface LoginFormData {
@@ -23,6 +25,10 @@ interface LoginFormData {
 export function SignInForm() {
   const signIn = useServerFn(signInFn);
   const navigate = useNavigate();
+
+  const beginPasskeyAuth = useServerFn(beginPasskeyAuthFn);
+  const finishPasskeyAuth = useServerFn(finishPasskeyAuthFn);
+  const [isPasskeyPending, setIsPasskeyPending] = createSignal(false);
 
   const formOpts = formOptions({
     defaultValues: {
@@ -70,9 +76,10 @@ export function SignInForm() {
                   : "valid"
               }
             >
-              <TextFieldLabel>Username</TextFieldLabel>
+              <TextFieldLabel>username</TextFieldLabel>
               <TextFieldInput
                 type="text"
+                autocomplete="username webauthn"
                 name={field().name}
                 value={field().state.value}
                 onBlur={field().handleBlur}
@@ -100,9 +107,10 @@ export function SignInForm() {
                   : "valid"
               }
             >
-              <TextFieldLabel>Password</TextFieldLabel>
+              <TextFieldLabel>password</TextFieldLabel>
               <TextFieldInput
                 type="password"
+                autocomplete="current-password"
                 name={field().name}
                 value={field().state.value}
                 onBlur={field().handleBlur}
@@ -125,7 +133,7 @@ export function SignInForm() {
           children={(state) => {
             return (
               <Button type="submit" disabled={!state().canSubmit}>
-                {state().isSubmitting ? "..." : "[ login ]"}
+                {state().isSubmitting ? "..." : "[ sign in ]"}
               </Button>
             );
           }}
@@ -134,8 +142,30 @@ export function SignInForm() {
 
       <Separator />
 
-      <Button type="submit" variant="secondary" disabled>
-        [ use passkey ]
+      <Button
+        type="button"
+        variant="secondary"
+        disabled={isPasskeyPending()}
+        onClick={async () => {
+          setIsPasskeyPending(true);
+          try {
+            const { ceremonyId, options } = await beginPasskeyAuth();
+            const credentialResult = await authenticateWithPasskey(options);
+            if (!credentialResult.ok) {
+              throw new Error("Could not get a passkey credential", {
+                cause: credentialResult.error,
+              });
+            }
+            await finishPasskeyAuth({
+              data: { ceremonyId, credential: credentialResult.value },
+            });
+            await navigate({ to: "/" });
+          } finally {
+            setIsPasskeyPending(false);
+          }
+        }}
+      >
+        {isPasskeyPending() ? "..." : "[ use passkey ]"}
       </Button>
 
       <p class="text-muted-foreground text-sm">

@@ -1,4 +1,5 @@
 import {
+  bigint,
   boolean,
   index,
   integer,
@@ -26,14 +27,28 @@ export const users = pgTable(
 export type User = typeof users.$inferSelect;
 export type UserInsert = typeof users.$inferInsert;
 
-export const webauthnChallenges = pgTable("webauthn_challenges", {
+export const webauthnRegistrationChallenges = pgTable("webauthn_registration_challenges", {
   id: uuid("id").notNull().primaryKey(),
-  challengeHash: text("challenge_hash").notNull(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  challenge: text("challenge").notNull(),
   expiresAt: timestamp("expires_at", timestampConfig).notNull(),
   createdAt: timestamp("created_at", timestampConfig).notNull().defaultNow(),
 });
-export type WebauthnChallenge = typeof webauthnChallenges.$inferSelect;
-export type WebauthnChallengeInsert = typeof webauthnChallenges.$inferInsert;
+export type WebauthnRegistrationChallenge = typeof webauthnRegistrationChallenges.$inferSelect;
+export type WebauthnRegistrationChallengeInsert =
+  typeof webauthnRegistrationChallenges.$inferInsert;
+
+export const webauthnAuthenticationChallenges = pgTable("webauthn_authentication_challenges", {
+  id: uuid("id").notNull().primaryKey(),
+  challenge: text("challenge").notNull(),
+  expiresAt: timestamp("expires_at", timestampConfig).notNull(),
+  createdAt: timestamp("created_at", timestampConfig).notNull().defaultNow(),
+});
+export type WebauthnAuthenticationChallenge = typeof webauthnAuthenticationChallenges.$inferSelect;
+export type WebauthnAuthenticationChallengeInsert =
+  typeof webauthnAuthenticationChallenges.$inferInsert;
 
 export const passkeys = pgTable(
   "passkeys",
@@ -42,10 +57,11 @@ export const passkeys = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id),
-    publicKey: text("public_key").notNull(),
-    counter: integer().notNull(),
+    publicKeySpki: text("public_key_spki").notNull(),
+    algorithm: integer("algorithm").notNull(),
+    signCount: bigint("sign_count", { mode: "number" }).notNull(),
     transports: jsonb().$type<string[]>().notNull(),
-    deviceType: text("device_type").notNull(),
+    backupEligible: boolean("backup_eligible").notNull(),
     backedUp: boolean("backed_up").notNull(),
     createdAt: timestamp("created_at", timestampConfig).notNull().defaultNow(),
   },

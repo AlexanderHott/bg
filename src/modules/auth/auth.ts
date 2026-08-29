@@ -4,10 +4,10 @@ import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 
-import * as authSchema from "../schema";
-import { argon2Hash, argon2Verify } from "./crypto";
-import { createSession, validateSession } from "./sessions";
-import { type SessionToken } from "./sessionToken";
+import { argon2Hash, argon2Verify } from "./lib/crypto";
+import { createSession, validateSession } from "./lib/sessions";
+import { type SessionToken } from "./lib/sessionToken";
+import * as authSchema from "./schema";
 
 export interface SignUpOptions {
   username: string;
@@ -49,6 +49,22 @@ export async function signIn(options: SignInOptions) {
     return undefined;
   }
 
+  return issueSession({
+    userId: user.id,
+    userAgent: options.userAgent,
+    ip: options.ip,
+    signal: options.signal,
+  });
+}
+
+export interface IssueSessionOptions {
+  userId: string;
+  userAgent?: string;
+  ip?: string;
+  signal?: AbortSignal;
+}
+
+export async function issueSession(options: IssueSessionOptions) {
   const { secret, secretHash, expiresAt } = await createSession({
     nowMs: Date.now(),
   });
@@ -61,20 +77,20 @@ export async function signIn(options: SignInOptions) {
     secretHash,
     userAgent: options.userAgent,
     ip: options.ip,
-    userId: user.id,
+    userId: options.userId,
   });
 
-  const sessionToken = {
-    id: sessionId,
-    secret,
-  };
-
   return {
-    userId: user.id,
+    userId: options.userId,
     sessionId,
-    sessionToken,
+    sessionToken: {
+      id: sessionId,
+      secret,
+    },
   };
 }
+
+export type AuthenticatedSession = Awaited<ReturnType<typeof issueSession>>;
 
 export interface SignOutOptions {
   sessionId: string;
@@ -136,4 +152,26 @@ export async function listActiveSessions(options: ListActiveSessionsOptions) {
   });
 
   return activeSessions;
+}
+
+export interface ListPasskeysOptions {
+  userId: string;
+  signal?: AbortSignal;
+}
+export async function listPasskeys(options: ListPasskeysOptions) {
+  options.signal?.throwIfAborted();
+  const passkeys = await db.query.passkeys.findMany({
+    where: { userId: options.userId },
+    columns: {
+      id: true,
+      signCount: true,
+      transports: true,
+      backupEligible: true,
+      backedUp: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return passkeys;
 }
