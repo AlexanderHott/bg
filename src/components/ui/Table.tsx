@@ -68,7 +68,7 @@ function TableHead(props: JSX.IntrinsicElements["th"]) {
     <th
       data-slot="table-head"
       class={cn(
-        "h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
+        "h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground has-[[role=checkbox]]:pr-0",
         local.class,
       )}
       {...others}
@@ -82,7 +82,7 @@ function TableCell(props: JSX.IntrinsicElements["td"]) {
   return (
     <td
       data-slot="table-cell"
-      class={cn("p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0", local.class)}
+      class={cn("p-2 align-middle whitespace-nowrap has-[[role=checkbox]]:pr-0", local.class)}
       {...others}
     />
   );

@@ -1,4 +1,4 @@
-import { assert, describe, expect, it, test } from "vite-plus/test";
+import { describe, expect, it, test } from "vite-plus/test";
 
 import { argon2Hash, argon2Verify, constantTimeCompare, secureRandomBytes } from "./crypto";
 
