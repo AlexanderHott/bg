@@ -1,9 +1,34 @@
-import { createFileRoute } from "@tanstack/solid-router";
+import { createFileRoute, Link } from "@tanstack/solid-router";
+import { For } from "solid-js";
+
+import { Button } from "@/components/ui/Button";
+import { listOrganizationsFn } from "@/modules/organizations/serverFunctions";
 
 export const Route = createFileRoute("/_app/")({
   component: RouteComponent,
+  loader: async () => {
+    const organizations = await listOrganizationsFn();
+    return { organizations };
+  },
 });
 
 function RouteComponent() {
-  return <div>Hello "/app/"!</div>;
+  const data = Route.useLoaderData();
+  return (
+    <div>
+      <div>select an organization ({data().organizations.length})</div>
+      <ul>
+        <For each={data().organizations}>
+          {(organization) => (
+            <li>
+              <pre>{JSON.stringify(organization, null, 2)}</pre>
+            </li>
+          )}
+        </For>
+      </ul>
+      <Button as={(props) => <Link to="/create-organization" {...props} />}>
+        [ create organization ]
+      </Button>
+    </div>
+  );
 }

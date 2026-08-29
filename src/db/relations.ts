@@ -7,6 +7,10 @@ export const relations = defineRelations(schema, (r) => ({
     sessions: r.many.sessions(),
     passkeys: r.many.passkeys(),
     webauthnRegistrationChallenges: r.many.webauthnRegistrationChallenges(),
+    organizations: r.many.organizations({
+      from: r.users.id.through(r.memberships.userId),
+      to: r.organizations.id.through(r.memberships.organizationId),
+    }),
   },
   sessions: {
     user: r.one.users({
@@ -24,6 +28,13 @@ export const relations = defineRelations(schema, (r) => ({
     user: r.one.users({
       from: r.webauthnRegistrationChallenges.userId,
       to: r.users.id,
+    }),
+  },
+
+  organizations: {
+    users: r.many.users({
+      from: r.organizations.id.through(r.memberships.organizationId),
+      to: r.users.id.through(r.memberships.userId),
     }),
   },
 }));

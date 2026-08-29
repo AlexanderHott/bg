@@ -22,7 +22,7 @@ import {
   revokeSessionFn,
 } from "@/modules/auth/serverFunctions";
 
-export const Route = createFileRoute("/_app/settings")({
+export const Route = createFileRoute("/_app/$orgSlug/settings")({
   component: RouteComponent,
   loader: async ({ context: { sessionId } }) => {
     const [activeSessions, passkeys] = await Promise.all([

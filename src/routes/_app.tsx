@@ -29,10 +29,10 @@ function RouteComponent() {
           <Link class="underline" to="/">
             home
           </Link>
-          <Link class="underline" to="/download">
+          <Link class="underline" to="/download" params={(old) => old}>
             download
           </Link>
-          <Link class="underline" to="/settings">
+          <Link class="underline" to="/settings" params={(old) => old}>
             settings
           </Link>
         </div>

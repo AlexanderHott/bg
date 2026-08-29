@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/solid-router";
 
 import { getSecretDataFn } from "@/modules/auth/serverFunctions";
 
-export const Route = createFileRoute("/_app/secret")({
+export const Route = createFileRoute("/_app/$orgSlug/secret")({
   component: RouteComponent,
   loader: async () => {
     const data = await getSecretDataFn();
