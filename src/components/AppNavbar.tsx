@@ -11,8 +11,11 @@ export function AppNavbar() {
 
   return (
     <header class="bg-background border-b">
-      <nav class="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-        <div class="flex items-center gap-4">
+      <nav
+        aria-label="Application"
+        class="mx-auto flex min-h-14 w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-2 sm:px-6"
+      >
+        <div class="flex items-center gap-3 sm:gap-4">
           <Link class="font-semibold" to="/">
             bg
           </Link>

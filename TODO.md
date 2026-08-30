@@ -1,7 +1,8 @@
 ## up next
 
 - [x] passkeys
-- [ ] organizations
+- [x] organizations
+- [x] db migration
 - [ ] invites
 - [ ] improve auth forms
   - [ ] change onChange validator to the dynamic one (onBlur first, then on dirty)
