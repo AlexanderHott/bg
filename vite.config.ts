@@ -5,7 +5,7 @@ import { nitro } from "nitro/vite";
 import solidPlugin from "vite-plugin-solid";
 import { defineConfig, lazyPlugins } from "vite-plus";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   fmt: {
     sortImports: true,
     sortPackageJson: true,
@@ -20,9 +20,9 @@ export default defineConfig({
   resolve: { tsconfigPaths: true },
   plugins: lazyPlugins(() => [
     devtools(),
-    nitro(),
+    ...(mode === "test" ? [] : [nitro()]),
     tailwindcss(),
     tanstackStart(),
     solidPlugin({ ssr: true }),
   ]),
-});
+}));
