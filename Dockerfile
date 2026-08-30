@@ -30,10 +30,15 @@ FROM debian:bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
+RUN apt-get update \
+    && apt-get install --no-install-recommends --yes libatomic1 \
+    && rm -rf /var/lib/apt/lists/*
+
 # The exact Node.js from .node-version (official, signature-verified build).
 COPY --from=build /tmp/node /usr/local/bin/node
 
 COPY --from=build /app/.output ./.output
+COPY --from=build /app/drizzle ./drizzle
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app/package.json ./
 
