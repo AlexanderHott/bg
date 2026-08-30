@@ -9,50 +9,280 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppRouteImport } from './routes/_app'
+import { Route as AppOrgSlugRouteImport } from './routes/_app/$orgSlug'
+import { Route as AppUserRouteImport } from './routes/_app/_user'
+import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
+import { Route as AuthSignUpRouteImport } from './routes/_auth/sign-up'
+import { Route as AppOrgSlugIndexRouteImport } from './routes/_app/$orgSlug/index'
+import { Route as AppOrgSlugDownloadRouteImport } from './routes/_app/$orgSlug/download'
+import { Route as AppOrgSlugSecretRouteImport } from './routes/_app/$orgSlug/secret'
+import { Route as AppUserIndexRouteImport } from './routes/_app/_user/index'
+import { Route as AppUserCreateOrganizationRouteImport } from './routes/_app/_user/create-organization'
+import { Route as AppUserSettingsRouteImport } from './routes/_app/_user/settings'
 
-const IndexRoute = IndexRouteImport.update({
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppOrgSlugRoute = AppOrgSlugRouteImport.update({
+  id: '/$orgSlug',
+  path: '/$orgSlug',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppUserRoute = AppUserRouteImport.update({
+  id: '/_user',
+  getParentRoute: () => AppRoute,
+} as any)
+const AuthSignInRoute = AuthSignInRouteImport.update({
+  id: '/_auth/sign-in',
+  path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthSignUpRoute = AuthSignUpRouteImport.update({
+  id: '/_auth/sign-up',
+  path: '/sign-up',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppOrgSlugIndexRoute = AppOrgSlugIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppOrgSlugRoute,
+} as any)
+const AppOrgSlugDownloadRoute = AppOrgSlugDownloadRouteImport.update({
+  id: '/download',
+  path: '/download',
+  getParentRoute: () => AppOrgSlugRoute,
+} as any)
+const AppOrgSlugSecretRoute = AppOrgSlugSecretRouteImport.update({
+  id: '/secret',
+  path: '/secret',
+  getParentRoute: () => AppOrgSlugRoute,
+} as any)
+const AppUserIndexRoute = AppUserIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppUserRoute,
+} as any)
+const AppUserCreateOrganizationRoute =
+  AppUserCreateOrganizationRouteImport.update({
+    id: '/create-organization',
+    path: '/create-organization',
+    getParentRoute: () => AppUserRoute,
+  } as any)
+const AppUserSettingsRoute = AppUserSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppUserRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/': typeof AppUserIndexRoute
+  '/$orgSlug': typeof AppOrgSlugRouteWithChildren
+  '/sign-in': typeof AuthSignInRoute
+  '/sign-up': typeof AuthSignUpRoute
+  '/$orgSlug/download': typeof AppOrgSlugDownloadRoute
+  '/$orgSlug/secret': typeof AppOrgSlugSecretRoute
+  '/create-organization': typeof AppUserCreateOrganizationRoute
+  '/settings': typeof AppUserSettingsRoute
+  '/$orgSlug/': typeof AppOrgSlugIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
+  '/': typeof AppUserIndexRoute
+  '/sign-in': typeof AuthSignInRoute
+  '/sign-up': typeof AuthSignUpRoute
+  '/$orgSlug/download': typeof AppOrgSlugDownloadRoute
+  '/$orgSlug/secret': typeof AppOrgSlugSecretRoute
+  '/create-organization': typeof AppUserCreateOrganizationRoute
+  '/settings': typeof AppUserSettingsRoute
+  '/$orgSlug': typeof AppOrgSlugIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
+  '/_app': typeof AppRouteWithChildren
+  '/_app/$orgSlug': typeof AppOrgSlugRouteWithChildren
+  '/_app/_user': typeof AppUserRouteWithChildren
+  '/_auth/sign-in': typeof AuthSignInRoute
+  '/_auth/sign-up': typeof AuthSignUpRoute
+  '/_app/$orgSlug/download': typeof AppOrgSlugDownloadRoute
+  '/_app/$orgSlug/secret': typeof AppOrgSlugSecretRoute
+  '/_app/_user/create-organization': typeof AppUserCreateOrganizationRoute
+  '/_app/_user/settings': typeof AppUserSettingsRoute
+  '/_app/$orgSlug/': typeof AppOrgSlugIndexRoute
+  '/_app/_user/': typeof AppUserIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/$orgSlug'
+    | '/sign-in'
+    | '/sign-up'
+    | '/$orgSlug/download'
+    | '/$orgSlug/secret'
+    | '/create-organization'
+    | '/settings'
+    | '/$orgSlug/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/sign-in'
+    | '/sign-up'
+    | '/$orgSlug/download'
+    | '/$orgSlug/secret'
+    | '/create-organization'
+    | '/settings'
+    | '/$orgSlug'
+  id:
+    | '__root__'
+    | '/_app'
+    | '/_app/$orgSlug'
+    | '/_app/_user'
+    | '/_auth/sign-in'
+    | '/_auth/sign-up'
+    | '/_app/$orgSlug/download'
+    | '/_app/$orgSlug/secret'
+    | '/_app/_user/create-organization'
+    | '/_app/_user/settings'
+    | '/_app/$orgSlug/'
+    | '/_app/_user/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
+  AuthSignInRoute: typeof AuthSignInRoute
+  AuthSignUpRoute: typeof AuthSignUpRoute
 }
 
 declare module '@tanstack/solid-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/$orgSlug': {
+      id: '/_app/$orgSlug'
+      path: '/$orgSlug'
+      fullPath: '/$orgSlug'
+      preLoaderRoute: typeof AppOrgSlugRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/_user': {
+      id: '/_app/_user'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppUserRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_auth/sign-in': {
+      id: '/_auth/sign-in'
+      path: '/sign-in'
+      fullPath: '/sign-in'
+      preLoaderRoute: typeof AuthSignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_auth/sign-up': {
+      id: '/_auth/sign-up'
+      path: '/sign-up'
+      fullPath: '/sign-up'
+      preLoaderRoute: typeof AuthSignUpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/$orgSlug/': {
+      id: '/_app/$orgSlug/'
+      path: '/'
+      fullPath: '/$orgSlug/'
+      preLoaderRoute: typeof AppOrgSlugIndexRouteImport
+      parentRoute: typeof AppOrgSlugRoute
+    }
+    '/_app/$orgSlug/download': {
+      id: '/_app/$orgSlug/download'
+      path: '/download'
+      fullPath: '/$orgSlug/download'
+      preLoaderRoute: typeof AppOrgSlugDownloadRouteImport
+      parentRoute: typeof AppOrgSlugRoute
+    }
+    '/_app/$orgSlug/secret': {
+      id: '/_app/$orgSlug/secret'
+      path: '/secret'
+      fullPath: '/$orgSlug/secret'
+      preLoaderRoute: typeof AppOrgSlugSecretRouteImport
+      parentRoute: typeof AppOrgSlugRoute
+    }
+    '/_app/_user/': {
+      id: '/_app/_user/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppUserIndexRouteImport
+      parentRoute: typeof AppUserRoute
+    }
+    '/_app/_user/create-organization': {
+      id: '/_app/_user/create-organization'
+      path: '/create-organization'
+      fullPath: '/create-organization'
+      preLoaderRoute: typeof AppUserCreateOrganizationRouteImport
+      parentRoute: typeof AppUserRoute
+    }
+    '/_app/_user/settings': {
+      id: '/_app/_user/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppUserSettingsRouteImport
+      parentRoute: typeof AppUserRoute
     }
   }
 }
 
+interface AppOrgSlugRouteChildren {
+  AppOrgSlugDownloadRoute: typeof AppOrgSlugDownloadRoute
+  AppOrgSlugSecretRoute: typeof AppOrgSlugSecretRoute
+  AppOrgSlugIndexRoute: typeof AppOrgSlugIndexRoute
+}
+
+const AppOrgSlugRouteChildren: AppOrgSlugRouteChildren = {
+  AppOrgSlugDownloadRoute: AppOrgSlugDownloadRoute,
+  AppOrgSlugSecretRoute: AppOrgSlugSecretRoute,
+  AppOrgSlugIndexRoute: AppOrgSlugIndexRoute,
+}
+
+const AppOrgSlugRouteWithChildren = AppOrgSlugRoute._addFileChildren(
+  AppOrgSlugRouteChildren,
+)
+
+interface AppUserRouteChildren {
+  AppUserCreateOrganizationRoute: typeof AppUserCreateOrganizationRoute
+  AppUserSettingsRoute: typeof AppUserSettingsRoute
+  AppUserIndexRoute: typeof AppUserIndexRoute
+}
+
+const AppUserRouteChildren: AppUserRouteChildren = {
+  AppUserCreateOrganizationRoute: AppUserCreateOrganizationRoute,
+  AppUserSettingsRoute: AppUserSettingsRoute,
+  AppUserIndexRoute: AppUserIndexRoute,
+}
+
+const AppUserRouteWithChildren =
+  AppUserRoute._addFileChildren(AppUserRouteChildren)
+
+interface AppRouteChildren {
+  AppOrgSlugRoute: typeof AppOrgSlugRouteWithChildren
+  AppUserRoute: typeof AppUserRouteWithChildren
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppOrgSlugRoute: AppOrgSlugRouteWithChildren,
+  AppUserRoute: AppUserRouteWithChildren,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
+  AuthSignInRoute: AuthSignInRoute,
+  AuthSignUpRoute: AuthSignUpRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
