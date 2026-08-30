@@ -34,3 +34,14 @@ export async function createAndJoinOrganization(options: {
     return organizationId;
   });
 }
+
+export async function getOrganization(options: { userId: string; organizationSlug: string }) {
+  return await db.query.organizations.findFirst({
+    where: {
+      users: {
+        id: options.userId,
+      },
+      slug: options.organizationSlug,
+    },
+  });
+}

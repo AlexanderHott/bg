@@ -3,7 +3,7 @@ import * as v from "valibot";
 
 import { authMiddleware } from "@/modules/auth/middleware";
 
-import { createAndJoinOrganization, listOrganizations } from "./organizations";
+import { createAndJoinOrganization, getOrganization, listOrganizations } from "./organizations";
 import { OrganizationNameValidator, OrganizationSlugValidator } from "./validators";
 
 export const listOrganizationsFn = createServerFn({ method: "GET" })
@@ -25,5 +25,15 @@ export const createAndJoinOrganizationFn = createServerFn({ method: "GET" })
       userId: context.userId,
       name: data.name,
       slug: data.slug,
+    });
+  });
+
+export const getOrganizationFn = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .validator(v.object({ organizationSlug: OrganizationSlugValidator }))
+  .handler(async ({ context, data }) => {
+    return await getOrganization({
+      userId: context.userId,
+      organizationSlug: data.organizationSlug,
     });
   });
