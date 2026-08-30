@@ -24,9 +24,8 @@ jobs:
       - name: Typecheck Code
         run: vp run typecheck
 
-      # TODO: enable when we have tests
-      # - name: Test code
-      #   run: vp run test
+      - name: Test code
+        run: vp run test
 
       - name: Build code
         run: vp run build
