@@ -10,7 +10,7 @@ export default defineConfig({
     sortImports: true,
     sortPackageJson: true,
     sortTailwindcss: true,
-    ignorePatterns: ["**/routeTree.gen.ts"],
+    ignorePatterns: ["**/routeTree.gen.ts", "drizzle/"],
   },
   lint: {
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
