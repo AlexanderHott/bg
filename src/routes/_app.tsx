@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/solid-router";
 
+import { AppNavbar } from "@/components/AppNavbar";
 import { getSessionFn } from "@/modules/auth/serverFunctions";
 
 export const Route = createFileRoute("/_app")({
@@ -18,5 +19,10 @@ export const Route = createFileRoute("/_app")({
 });
 
 function RouteComponent() {
-  return <Outlet />;
+  return (
+    <div class="bg-muted/30 min-h-screen">
+      <AppNavbar />
+      <Outlet />
+    </div>
+  );
 }

@@ -1,8 +1,5 @@
-import { createFileRoute, Link, Outlet, redirect, useNavigate } from "@tanstack/solid-router";
-import { useServerFn } from "@tanstack/solid-start";
+import { createFileRoute, Link, Outlet, redirect } from "@tanstack/solid-router";
 
-import { Button } from "@/components/ui/Button";
-import { signOutFn } from "@/modules/auth/serverFunctions";
 import { getOrganizationFn } from "@/modules/organizations/serverFunctions";
 
 export const Route = createFileRoute("/_app/$orgSlug")({
@@ -21,35 +18,38 @@ export const Route = createFileRoute("/_app/$orgSlug")({
 });
 
 function RouteComponent() {
-  const signOut = useServerFn(signOutFn);
-  const navigate = useNavigate();
+  const context = Route.useRouteContext();
+
   return (
-    <div>
-      <nav class="flex items-center justify-between p-4">
-        <div class="flex items-center gap-4">
-          <Link class="underline" to="/$orgSlug/">
+    <div class="min-h-[calc(100vh-3.5rem)]">
+      <div class="bg-background border-b">
+        <nav class="mx-auto flex min-h-12 w-full max-w-6xl flex-wrap items-center gap-x-5 gap-y-2 px-4 py-2 text-sm sm:px-6">
+          <span class="font-medium">{context().organization.name}</span>
+          <Link
+            class="text-muted-foreground hover:text-foreground"
+            to="/$orgSlug"
+            params={{ orgSlug: context().organization.slug }}
+          >
             home
           </Link>
-          <Link class="underline" to="/$orgSlug/download" params={(old) => old}>
+          <Link
+            class="text-muted-foreground hover:text-foreground"
+            to="/$orgSlug/download"
+            params={{ orgSlug: context().organization.slug }}
+          >
             download
           </Link>
-          <Link class="underline" to="/">
+          <Link class="text-muted-foreground hover:text-foreground ml-auto" to="/">
             switch organization
           </Link>
+        </nav>
+      </div>
+
+      <main class="mx-auto w-full max-w-6xl p-4 sm:p-6">
+        <div class="bg-background rounded-xl border p-4 sm:p-6">
+          <Outlet />
         </div>
-        <div>
-          <Button
-            variant="secondary"
-            onClick={async () => {
-              await signOut();
-              await navigate({ to: "/" });
-            }}
-          >
-            [ sign out ]
-          </Button>
-        </div>
-      </nav>
-      <Outlet />
+      </main>
     </div>
   );
 }

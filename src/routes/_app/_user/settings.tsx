@@ -22,7 +22,7 @@ import {
   revokeSessionFn,
 } from "@/modules/auth/serverFunctions";
 
-export const Route = createFileRoute("/_app/settings")({
+export const Route = createFileRoute("/_app/_user/settings")({
   component: RouteComponent,
   loader: async ({ context: { sessionId } }) => {
     const [activeSessions, passkeys] = await Promise.all([
@@ -35,7 +35,13 @@ export const Route = createFileRoute("/_app/settings")({
 
 function RouteComponent() {
   return (
-    <div class="flex flex-col gap-4 p-4">
+    <div class="flex flex-col gap-4">
+      <div>
+        <h1 class="text-2xl font-semibold">account settings</h1>
+        <p class="text-muted-foreground mt-1 text-sm">
+          Manage your sign-in methods and active sessions.
+        </p>
+      </div>
       <ActiveSessions />
       <Passkeys />
     </div>

@@ -1,4 +1,12 @@
-import { index, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  index,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  type PgTimestampConfig,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 import * as authSchema from "@/modules/auth/schema.ts";
 
