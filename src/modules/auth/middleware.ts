@@ -16,12 +16,10 @@ export const authMiddleware = createMiddleware({
     throw new Error("Unauthorized");
   }
 
-  console.time("getSession");
   const session = await getSession({
     sessionToken,
     signal,
   });
-  console.timeEnd("getSession");
   if (!session) {
     throw new Error("Unauthorized");
   }
