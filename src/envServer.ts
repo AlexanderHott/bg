@@ -6,4 +6,8 @@ const EnvServerSchema = v.object({
   WEBAUTHN_ORIGIN: v.pipe(v.string(), v.url()),
 });
 
-export const envServer = v.parse(EnvServerSchema, process.env);
+export const envServer = v.parse(EnvServerSchema, {
+  DATABASE_URL: process.env.DATABASE_URL,
+  WEBAUTHN_RP_ID: process.env.WEBAUTHN_RP_ID,
+  WEBAUTHN_ORIGIN: process.env.WEBAUTHN_ORIGIN,
+});
