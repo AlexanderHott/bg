@@ -32,6 +32,7 @@ function RouteComponent() {
             class="text-muted-foreground hover:text-foreground"
             to="/$orgSlug"
             params={{ orgSlug: context().organization.slug }}
+            activeOptions={{ exact: true }}
           >
             home
           </Link>
@@ -42,6 +43,13 @@ function RouteComponent() {
           >
             download
           </Link>
+          <Link
+            class="text-muted-foreground hover:text-foreground"
+            to="/$orgSlug/remove-background"
+            params={{ orgSlug: context().organization.slug }}
+          >
+            upload demo
+          </Link>
           <Link class="text-muted-foreground hover:text-foreground ml-auto" to="/">
             switch organization
           </Link>
@@ -49,9 +57,7 @@ function RouteComponent() {
       </div>
 
       <main class="mx-auto w-full max-w-6xl p-4 sm:p-6">
-        <div class="bg-background rounded-xl border p-4 sm:p-6">
-          <Outlet />
-        </div>
+        <Outlet />
       </main>
     </div>
   );
