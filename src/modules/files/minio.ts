@@ -70,6 +70,7 @@ export async function startMultipartUpload(options: {
 }
 
 const SIGNED_URL_LIFETIME_SECONDS = 15 * 60;
+const SIGNED_VIEW_URL_LIFETIME_SECONDS = 60 * 60;
 
 export type SignUploadPartError =
   | {
@@ -117,6 +118,33 @@ export async function signUploadPart(options: {
     url: urlResult.value,
     expiresAt: new Date(signedAt + SIGNED_URL_LIFETIME_SECONDS * 1_000),
   });
+}
+
+export type SignOpenObjectError = {
+  kind: "SIGN_OPEN_OBJECT_FAILED";
+  cause: unknown;
+};
+
+export async function signOpenObject(options: {
+  key: string;
+}): Promise<Result<string, SignOpenObjectError>> {
+  const command = new GetObjectCommand({
+    Bucket: envServer.S3_BUCKET,
+    Key: options.key,
+  });
+  const urlResult = await tryAsync(() =>
+    getSignedUrl(publicSigningClient, command, {
+      expiresIn: SIGNED_VIEW_URL_LIFETIME_SECONDS,
+    }),
+  );
+  if (!urlResult.ok) {
+    return err({
+      kind: "SIGN_OPEN_OBJECT_FAILED",
+      cause: urlResult.error,
+    });
+  }
+
+  return ok(urlResult.value);
 }
 
 export type AbortMultipartUploadError = {

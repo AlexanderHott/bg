@@ -12,7 +12,7 @@ import * as organizationSchema from "@/modules/organizations/schema.ts";
 
 const timestampConfig = { withTimezone: true } as const satisfies PgTimestampConfig;
 
-const backgroundRemovalStatus = pgEnum("background_removal_status", [
+export const backgroundRemovalStatus = pgEnum("background_removal_status", [
   "queued",
   "processing",
   "succeeded",
@@ -20,7 +20,7 @@ const backgroundRemovalStatus = pgEnum("background_removal_status", [
 ]);
 
 export const backgroundRemovals = pgTable(
-  "backgroundRemovals",
+  "background_removals",
   {
     id: uuid("id").notNull().primaryKey(),
     organizationId: uuid("organization_id")

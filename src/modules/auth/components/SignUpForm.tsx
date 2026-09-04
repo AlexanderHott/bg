@@ -72,7 +72,8 @@ export function SignupForm() {
               try {
                 await new Promise((resolve) => setTimeout(resolve, 500));
 
-                return value === "asdfasdf" ? "Username taken" : undefined;
+                // return value === "asdfasdf" ? "Username taken" : undefined;
+                return undefined;
               } finally {
                 if (validationVersion === usernameValidationVersion) {
                   setIsUsernameValidationPending(false);

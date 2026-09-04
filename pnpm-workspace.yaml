@@ -1,6 +1,7 @@
 allowBuilds:
   esbuild: true
   lightningcss: true
+  protobufjs: false
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@0.3.0
   vite-plus: 0.3.0

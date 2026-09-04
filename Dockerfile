@@ -39,6 +39,7 @@ COPY --from=build /tmp/node /usr/local/bin/node
 
 COPY --from=build /app/.output ./.output
 COPY --from=build /app/drizzle ./drizzle
+COPY --from=build /app/instrumentation.mjs ./instrumentation.mjs
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app/package.json ./
 

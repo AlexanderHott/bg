@@ -6,7 +6,7 @@ import { authMiddleware } from "@/modules/auth/middleware";
 import { getOrganization } from "@/modules/organizations/organizations";
 import { OrganizationSlugValidator } from "@/modules/organizations/validators";
 
-import { beginFileUpload, completeFileUpload } from "./files";
+import { beginFileUpload, completeFileUpload, getReadyImage, listReadyImages } from "./files";
 
 const MAX_FILE_SIZE_BYTES = 2_000_000_000;
 
@@ -32,6 +32,50 @@ const CompleteFileUploadValidator = v.object({
     v.maxLength(10_000),
   ),
 });
+
+const ListReadyImagesValidator = v.object({
+  organizationSlug: OrganizationSlugValidator,
+});
+
+const GetReadyImageValidator = v.object({
+  organizationSlug: OrganizationSlugValidator,
+  fileId: v.pipe(v.string(), v.uuid()),
+});
+
+export const listReadyImagesFn = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .validator(ListReadyImagesValidator)
+  .handler(async ({ context, data }) => {
+    const organization = await getOrganization({
+      userId: context.userId,
+      organizationSlug: data.organizationSlug,
+    });
+
+    if (!organization) {
+      throw new Error("Organization not found");
+    }
+
+    return listReadyImages({ organizationId: organization.id });
+  });
+
+export const getReadyImageFn = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .validator(GetReadyImageValidator)
+  .handler(async ({ context, data }) => {
+    const organization = await getOrganization({
+      userId: context.userId,
+      organizationSlug: data.organizationSlug,
+    });
+
+    if (!organization) {
+      throw new Error("Organization not found");
+    }
+
+    return getReadyImage({
+      organizationId: organization.id,
+      fileId: data.fileId,
+    });
+  });
 
 export const beginFileUploadFn = createServerFn({
   method: "POST",

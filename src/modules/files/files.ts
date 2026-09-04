@@ -1,10 +1,11 @@
 import { randomUUIDv7 } from "node:crypto";
 
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { err, ok, tryAsync, type Result } from "@/lib/result";
 
+import { isSupportedImageMediaType, SUPPORTED_IMAGE_MEDIA_TYPES } from "./images";
 import * as minio from "./minio";
 import * as fileSchema from "./schema";
 
@@ -25,6 +26,49 @@ export interface ReadyFile {
   mediaType: string;
   sizeBytes: number;
   createdAt: Date;
+}
+
+export interface ReadyImage extends ReadyFile {
+  url: string;
+}
+
+export async function listReadyImages(options: {
+  organizationId: string;
+}): Promise<Array<ReadyImage>> {
+  const files = await db
+    .select()
+    .from(fileSchema.files)
+    .where(
+      and(
+        eq(fileSchema.files.organizationId, options.organizationId),
+        eq(fileSchema.files.state, "ready"),
+        inArray(fileSchema.files.mediaType, SUPPORTED_IMAGE_MEDIA_TYPES),
+      ),
+    )
+    .orderBy(desc(fileSchema.files.createdAt), desc(fileSchema.files.id));
+
+  const images = await Promise.all(files.map(toReadyImage));
+  return images.filter((image) => image !== undefined);
+}
+
+export async function getReadyImage(options: {
+  organizationId: string;
+  fileId: string;
+}): Promise<Result<ReadyImage, FileError>> {
+  const fileResult = await tryAsync(() => findFileById(options.organizationId, options.fileId));
+  if (!fileResult.ok) {
+    return databaseFailure(fileResult.error);
+  }
+  if (!fileResult.value) {
+    return err({ kind: "FILE_NOT_FOUND" });
+  }
+
+  const image = await toReadyImage(fileResult.value.file);
+  if (!image) {
+    return err({ kind: "FILE_NOT_READY" });
+  }
+
+  return ok(image);
 }
 
 export interface UploadPartTarget {
@@ -716,6 +760,20 @@ function toReadyFile(file: fileSchema.File): ReadyFile | undefined {
     sizeBytes: file.sizeBytes,
     createdAt: file.createdAt,
   };
+}
+
+async function toReadyImage(file: fileSchema.File): Promise<ReadyImage | undefined> {
+  const readyFile = toReadyFile(file);
+  if (!readyFile || !isSupportedImageMediaType(readyFile.mediaType)) {
+    return undefined;
+  }
+
+  const urlResult = await minio.signOpenObject({ key: file.storageKey });
+  if (!urlResult.ok) {
+    return storageFailure(urlResult.error);
+  }
+
+  return { ...readyFile, url: urlResult.value };
 }
 
 function getPartCount(sizeBytes: number, partSizeBytes: number) {

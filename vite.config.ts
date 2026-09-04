@@ -20,7 +20,15 @@ export default defineConfig(({ mode }) => ({
   resolve: { tsconfigPaths: true },
   plugins: lazyPlugins(() => [
     devtools(),
-    ...(mode === "test" ? [] : [nitro()]),
+    ...(mode === "test"
+      ? []
+      : [
+          nitro({
+            rollupConfig: {
+              external: ["pg", "@aws-sdk/client-s3", "@aws-sdk/s3-request-presigner"],
+            },
+          }),
+        ]),
     tailwindcss(),
     tanstackStart(),
     solidPlugin({ ssr: true }),

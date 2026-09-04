@@ -1,9 +1,8 @@
 ## up next
 
-- [ ] file uploads
 - [ ] seed database
-- [ ] add otel <https://tanstack.com/start/latest/docs/framework/solid/guide/observability>
-- [ ] fix passkeys
+- [x] add otel <https://tanstack.com/start/latest/docs/framework/solid/guide/observability>
+- [x] fix passkeys
 - [ ] invites
 - [ ] improve auth + organization forms
   - [ ] change onChange validator to the dynamic one (onBlur first, then on dirty)

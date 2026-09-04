@@ -19,6 +19,21 @@ services:
       S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
       S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
       S3_FORCE_PATH_STYLE: "true"
+      NODE_OPTIONS: "--import ./instrumentation.mjs"
+      OTEL_ENABLED: "${OTEL_ENABLED:-false}"
+      OTEL_SERVICE_NAME: bg-web
+      OTEL_RESOURCE_ATTRIBUTES: "deployment.environment.name=${DEPLOYMENT_ENVIRONMENT:-production}"
+      OTEL_NODE_RESOURCE_DETECTORS: env,host,os,process,serviceinstance,container
+      OTEL_NODE_ENABLED_INSTRUMENTATIONS: http,pg,aws-sdk,runtime-node
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: none
+      OTEL_EXPORTER_OTLP_ENDPOINT: "${OTEL_EXPORTER_OTLP_ENDPOINT:-}"
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_EXPORTER_OTLP_COMPRESSION: gzip
+      OTEL_EXPORTER_OTLP_HEADERS: "Authorization=Bearer%20${OTEL_BEARER_TOKEN:-}"
+      OTEL_EXPORTER_OTLP_TIMEOUT: "5000"
+      OTEL_LOG_LEVEL: info
     expose:
       - "3000"
     networks:

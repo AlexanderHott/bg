@@ -4,15 +4,17 @@ import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { uploadFile, type UploadFileError, type UploadProgress } from "@/modules/files/browser";
 import type { ReadyFile } from "@/modules/files/files";
+import { isSupportedImageMediaType, SUPPORTED_IMAGE_MEDIA_TYPES } from "@/modules/files/images";
 
 const MAX_IMAGE_SIZE_BYTES = 2_000_000_000;
 const MAX_PREVIEW_SIZE_BYTES = 25_000_000;
-const SUPPORTED_IMAGE_TYPES = new Set(["image/avif", "image/jpeg", "image/png", "image/webp"]);
-
 type UploadStatus = "selected" | "uploading" | "finalizing" | "cancelling" | "uploaded";
 type DragState = "accepted" | "rejected";
 
-export function ImageUploader(props: { organizationSlug: string }) {
+export function ImageUploader(props: {
+  organizationSlug: string;
+  onUploaded?: (file: ReadyFile) => void;
+}) {
   const [selectedFile, setSelectedFile] = createSignal<File>();
   const [previewUrl, setPreviewUrl] = createSignal<string>();
   const [requestId, setRequestId] = createSignal<string>();
@@ -166,6 +168,7 @@ export function ImageUploader(props: { organizationSlug: string }) {
       setProgress({ phase: "finalizing", uploadedBytes: file.size, totalBytes: file.size });
       setUploadedFile(result.value);
       setStatus("uploaded");
+      props.onUploaded?.(result.value);
       return;
     }
 
@@ -213,7 +216,7 @@ export function ImageUploader(props: { organizationSlug: string }) {
           }}
           class="sr-only"
           type="file"
-          accept="image/avif,image/jpeg,image/png,image/webp"
+          accept={SUPPORTED_IMAGE_MEDIA_TYPES.join(",")}
           tabIndex={-1}
           onClick={(event) => event.stopPropagation()}
           onChange={(event) => selectFiles(event.currentTarget.files)}
@@ -353,7 +356,9 @@ export function ImageUploader(props: { organizationSlug: string }) {
 }
 
 function validateImage(file: File) {
-  if (!SUPPORTED_IMAGE_TYPES.has(file.type)) return "Choose a jpeg, png, webp, or avif image.";
+  if (!isSupportedImageMediaType(file.type)) {
+    return "Choose a jpeg, png, webp, or avif image.";
+  }
   if (file.size === 0) return "Choose a non-empty image.";
   if (file.size > MAX_IMAGE_SIZE_BYTES) return "Choose an image smaller than 2 GB.";
   return undefined;
@@ -368,7 +373,7 @@ function hasDraggedFiles(event: DragEvent) {
 function isDraggedImageAccepted(event: DragEvent) {
   const files = Array.from(event.dataTransfer?.items ?? []).filter((item) => item.kind === "file");
   if (files.length !== 1) return false;
-  return files[0].type === "application/x-moz-file" || SUPPORTED_IMAGE_TYPES.has(files[0].type);
+  return files[0].type === "application/x-moz-file" || isSupportedImageMediaType(files[0].type);
 }
 
 function statusLabel(status: UploadStatus) {
