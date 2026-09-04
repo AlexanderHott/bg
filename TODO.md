@@ -1,15 +1,18 @@
 ## up next
 
-- [x] passkeys
-- [x] organizations
-- [x] db migration
+- [ ] seed database
+- [x] add otel <https://tanstack.com/start/latest/docs/framework/solid/guide/observability>
+- [x] fix passkeys
 - [ ] invites
-- [ ] improve auth forms
+- [ ] improve auth + organization forms
   - [ ] change onChange validator to the dynamic one (onBlur first, then on dirty)
   - [ ] make async username validator better
-- [ ] extend session lifetimes
-- [ ] add ratelimiter
-- [ ] add otel <https://tanstack.com/start/latest/docs/framework/solid/guide/observability>
+  - [ ] make org slug autofill from the name
+  - [ ] restrict org slug to be lowercase and `A-Za-z_-`
+- [ ] extend session lifetimes on login
+- [ ] add in-memory ratelimiter
+- [ ] pin docker containers to specific hashes
+- [ ] setup renovate bot
 
 ## maybe
 

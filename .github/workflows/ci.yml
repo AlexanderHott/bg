@@ -12,11 +12,18 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: voidzero-dev/setup-vp@v1.18.0
         with:
           node-version: "26"
           cache: true
       - run: vp install
+
+      - name: Analyze code health
+        uses: fallow-rs/fallow@v3
+        with:
+          artifacts-dir: .fallow-artifacts
 
       - name: Lint Code
         run: vp run lint

@@ -3,7 +3,7 @@ import * as v from "valibot";
 import { envServer } from "@/envServer";
 import { err, ok, type Result } from "@/lib/result";
 
-import { sha256Hash } from "../crypto";
+import { sha256Hash, type Bytes } from "../crypto";
 import { importPublicKeySpki, verifyWebAuthnSignature } from "./signature";
 import {
   Base64URLValidator,
@@ -11,15 +11,16 @@ import {
   concatBytes,
   CredentialIdValidator,
   isSupportedAlgorithm,
-  parseAuthenticatorData,
   parseBase64url,
-  rpIdHashMatches,
+  verifyAuthenticatorData,
   UserHandleValidator,
   verifyClientData,
+  type ParsedAuthenticatorData,
+  type SupportedCoseAlgorithm,
   type WebAuthnPolicy,
 } from "./verification";
 
-export type { SupportedCoseAlgorithm, WebAuthnPolicy } from "./verification";
+export type { WebAuthnPolicy } from "./verification";
 
 const AuthenticationResponseValidator = v.object({
   id: CredentialIdValidator,
@@ -101,26 +102,8 @@ export async function verifyAuthenticationResponse(
   }
 
   const credential = credentialResult.output;
-  const credentialIdResult = parseBase64url(credential.rawId);
-  if (
-    !credentialIdResult.ok ||
-    credential.id !== credential.rawId ||
-    !bytesMatchBase64url(credentialIdResult.value, input.storedPasskey.credentialId)
-  ) {
-    return err({ kind: "CREDENTIAL_ID_MISMATCH", cause: credentialIdResult });
-  }
-
-  const userHandle = credential.response.userHandle;
-  if (userHandle === undefined) {
-    return err({ kind: "USER_HANDLE_REQUIRED", cause: undefined });
-  }
-  const userHandleResult = parseBase64url(userHandle);
-  if (!userHandleResult.ok) {
-    return err({ kind: "MALFORMED_CREDENTIAL", cause: userHandleResult.error });
-  }
-  if (!bytesMatchBase64url(userHandleResult.value, input.storedPasskey.userHandle)) {
-    return err({ kind: "USER_HANDLE_MISMATCH", cause: undefined });
-  }
+  const identityResult = verifyCredentialIdentity(credential, input.storedPasskey);
+  if (!identityResult.ok) return identityResult;
 
   const clientDataResult = verifyClientData({
     encodedClientData: credential.response.clientDataJSON,
@@ -132,84 +115,24 @@ export async function verifyAuthenticationResponse(
     return err({ kind: clientDataResult.error, cause: undefined });
   }
 
-  const authenticatorDataBytesResult = parseBase64url(credential.response.authenticatorData);
-  if (!authenticatorDataBytesResult.ok) {
-    return err({
-      kind: "INVALID_AUTHENTICATOR_DATA",
-      cause: authenticatorDataBytesResult.error,
-    });
-  }
-
-  const authenticatorDataResult = parseAuthenticatorData(authenticatorDataBytesResult.value);
-  if (!authenticatorDataResult.ok) {
-    return err({ kind: authenticatorDataResult.error, cause: undefined });
-  }
+  const authenticatorDataResult = await verifyAuthenticatorData({
+    encodedData: credential.response.authenticatorData,
+    policy: input.policy,
+  });
+  if (!authenticatorDataResult.ok) return authenticatorDataResult;
   const authenticatorData = authenticatorDataResult.value;
 
-  if (authenticatorData.hasAttestedCredentialData) {
-    return err({ kind: "INVALID_AUTHENTICATOR_DATA", cause: undefined });
-  }
-  if (
-    (!authenticatorData.hasExtensionData && authenticatorData.trailingBytes.byteLength !== 0) ||
-    (authenticatorData.hasExtensionData && authenticatorData.trailingBytes.byteLength === 0)
-  ) {
-    return err({ kind: "INVALID_AUTHENTICATOR_DATA", cause: undefined });
-  }
-  if (!(await rpIdHashMatches(input.policy.rpId, authenticatorData.rpIdHash))) {
-    return err({ kind: "RP_ID_MISMATCH", cause: undefined });
-  }
-  if (!authenticatorData.userPresent) {
-    return err({ kind: "USER_PRESENCE_REQUIRED", cause: undefined });
-  }
-  if (input.policy.requireUserVerification && !authenticatorData.userVerified) {
-    return err({ kind: "USER_VERIFICATION_REQUIRED", cause: undefined });
-  }
-  if (authenticatorData.backupEligible !== input.storedPasskey.backupEligible) {
-    return err({ kind: "BACKUP_ELIGIBILITY_CHANGED", cause: undefined });
-  }
-  if (
-    !Number.isInteger(input.storedPasskey.signCount) ||
-    input.storedPasskey.signCount < 0 ||
-    input.storedPasskey.signCount > 0xffff_ffff
-  ) {
-    return err({ kind: "INVALID_AUTHENTICATOR_DATA", cause: undefined });
-  }
-  if (!isSupportedAlgorithm(input.storedPasskey.algorithm, input.policy.supportedAlgorithms)) {
-    return err({ kind: "UNSUPPORTED_ALGORITHM", cause: input.storedPasskey.algorithm });
-  }
+  const passkeyResult = verifyStoredPasskey(input, authenticatorData);
+  if (!passkeyResult.ok) return passkeyResult;
 
-  const publicKeyResult = parseBase64url(input.storedPasskey.publicKeySpki);
-  if (!publicKeyResult.ok) {
-    return err({ kind: "INVALID_PUBLIC_KEY", cause: publicKeyResult.error });
-  }
-  const importedPublicKeyResult = importPublicKeySpki({
-    algorithm: input.storedPasskey.algorithm,
-    publicKeySpki: publicKeyResult.value,
-  });
-  if (!importedPublicKeyResult.ok) {
-    return err({ kind: "INVALID_PUBLIC_KEY", cause: importedPublicKeyResult.error });
-  }
-
-  const signatureResult = parseBase64url(credential.response.signature);
-  if (!signatureResult.ok) {
-    return err({ kind: "MALFORMED_CREDENTIAL", cause: signatureResult.error });
-  }
-
-  const clientDataHash = await sha256Hash(clientDataResult.value.bytes);
-  const signedData = concatBytes(authenticatorData.bytes, clientDataHash);
-
-  const verificationResult = verifyWebAuthnSignature({
-    algorithm: input.storedPasskey.algorithm,
-    publicKey: importedPublicKeyResult.value,
-    signature: signatureResult.value,
-    signedData,
-  });
-  if (!verificationResult.ok) {
-    return err({ kind: "INVALID_SIGNATURE", cause: verificationResult.error });
-  }
-  if (!verificationResult.value) {
-    return err({ kind: "INVALID_SIGNATURE", cause: undefined });
-  }
+  const signatureResult = await verifySignature(
+    credential,
+    input.storedPasskey,
+    passkeyResult.value,
+    authenticatorData,
+    clientDataResult.value.bytes,
+  );
+  if (!signatureResult.ok) return signatureResult;
 
   return ok({
     newSignCount: authenticatorData.signCount,
@@ -221,7 +144,95 @@ export async function verifyAuthenticationResponse(
   });
 }
 
-export function classifySignatureCounter(stored: number, received: number): SignatureCounterStatus {
+type AuthenticationCredential = v.InferOutput<typeof AuthenticationResponseValidator>;
+
+function verifyCredentialIdentity(
+  credential: AuthenticationCredential,
+  storedPasskey: StoredPasskeyVerificationData,
+): Result<undefined, AuthenticationVerificationError> {
+  const credentialIdResult = parseBase64url(credential.rawId);
+  if (
+    !credentialIdResult.ok ||
+    credential.id !== credential.rawId ||
+    !bytesMatchBase64url(credentialIdResult.value, storedPasskey.credentialId)
+  ) {
+    return err({ kind: "CREDENTIAL_ID_MISMATCH", cause: credentialIdResult });
+  }
+
+  const userHandle = credential.response.userHandle;
+  if (userHandle === undefined) return err({ kind: "USER_HANDLE_REQUIRED", cause: undefined });
+
+  const userHandleResult = parseBase64url(userHandle);
+  if (!userHandleResult.ok) {
+    return err({ kind: "MALFORMED_CREDENTIAL", cause: userHandleResult.error });
+  }
+  if (!bytesMatchBase64url(userHandleResult.value, storedPasskey.userHandle)) {
+    return err({ kind: "USER_HANDLE_MISMATCH", cause: undefined });
+  }
+
+  return ok(undefined);
+}
+
+function verifyStoredPasskey(
+  input: VerifyAuthenticationResponseInput,
+  authenticatorData: ParsedAuthenticatorData,
+): Result<SupportedCoseAlgorithm, AuthenticationVerificationError> {
+  if (authenticatorData.hasAttestedCredentialData || invalidExtensionData(authenticatorData)) {
+    return err({ kind: "INVALID_AUTHENTICATOR_DATA", cause: undefined });
+  }
+  if (authenticatorData.backupEligible !== input.storedPasskey.backupEligible) {
+    return err({ kind: "BACKUP_ELIGIBILITY_CHANGED", cause: undefined });
+  }
+  if (!validSignatureCounter(input.storedPasskey.signCount)) {
+    return err({ kind: "INVALID_AUTHENTICATOR_DATA", cause: undefined });
+  }
+
+  const algorithm = input.storedPasskey.algorithm;
+  if (!isSupportedAlgorithm(algorithm, input.policy.supportedAlgorithms)) {
+    return err({ kind: "UNSUPPORTED_ALGORITHM", cause: algorithm });
+  }
+  return ok(algorithm);
+}
+
+async function verifySignature(
+  credential: AuthenticationCredential,
+  storedPasskey: StoredPasskeyVerificationData,
+  algorithm: SupportedCoseAlgorithm,
+  authenticatorData: ParsedAuthenticatorData,
+  clientDataBytes: Bytes,
+): Promise<Result<undefined, AuthenticationVerificationError>> {
+  const publicKeyResult = parseBase64url(storedPasskey.publicKeySpki);
+  if (!publicKeyResult.ok) return err({ kind: "INVALID_PUBLIC_KEY", cause: publicKeyResult.error });
+
+  const publicKey = importPublicKeySpki({ algorithm, publicKeySpki: publicKeyResult.value });
+  if (!publicKey.ok) return err({ kind: "INVALID_PUBLIC_KEY", cause: publicKey.error });
+
+  const signature = parseBase64url(credential.response.signature);
+  if (!signature.ok) return err({ kind: "MALFORMED_CREDENTIAL", cause: signature.error });
+
+  const clientDataHash = await sha256Hash(clientDataBytes);
+  const verificationResult = verifyWebAuthnSignature({
+    algorithm,
+    publicKey: publicKey.value,
+    signature: signature.value,
+    signedData: concatBytes(authenticatorData.bytes, clientDataHash),
+  });
+  if (!verificationResult.ok) {
+    return err({ kind: "INVALID_SIGNATURE", cause: verificationResult.error });
+  }
+  if (!verificationResult.value) return err({ kind: "INVALID_SIGNATURE", cause: undefined });
+  return ok(undefined);
+}
+
+function invalidExtensionData(data: ParsedAuthenticatorData) {
+  return data.hasExtensionData === (data.trailingBytes.byteLength === 0);
+}
+
+function validSignatureCounter(counter: number) {
+  return Number.isInteger(counter) && counter >= 0 && counter <= 0xffff_ffff;
+}
+
+function classifySignatureCounter(stored: number, received: number): SignatureCounterStatus {
   if (stored === 0 && received === 0) {
     return "NOT_SUPPORTED";
   }

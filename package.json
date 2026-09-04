@@ -8,16 +8,21 @@
     "build": "vp build",
     "test": "vp test",
     "lint": "vp check",
+    "fallow": "fallow",
     "format": "vp fmt",
     "start": "node .output/server/index.mjs",
     "typecheck": "tsc --noEmit",
     "preview": "vp preview",
-    "ci": "vp run format && vp run lint && vp run typecheck && vp run build"
+    "ci": "vp run format && vp run lint && vp run typecheck && vp run build && vp run fallow"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1121.0",
+    "@aws-sdk/s3-request-presigner": "^3.1121.0",
     "@fontsource/ibm-plex-mono": "^5.3.0",
     "@kobalte/core": "^0.13.13",
     "@node-rs/argon2": "^2.1.0",
+    "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/auto-instrumentations-node": "0.80.0",
     "@tanstack/solid-form": "^1.33.5",
     "@tanstack/solid-router": "latest",
     "@tanstack/solid-router-devtools": "latest",
@@ -25,6 +30,7 @@
     "class-variance-authority": "^0.7.1",
     "dotenv": "^17.4.2",
     "drizzle-orm": "1.0.0-rc.4",
+    "import-in-the-middle": "3.4.0",
     "pg": "^8.23.0",
     "solid-js": "^1.9.15",
     "valibot": "^1.4.2"
@@ -36,6 +42,7 @@
     "@types/node": "^26.3.0",
     "@types/pg": "^8.23.1",
     "drizzle-kit": "1.0.0-rc.5-ab785fc",
+    "fallow": "3.22.0",
     "nitro": "3.0.260610-beta",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",

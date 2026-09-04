@@ -3,12 +3,37 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
     restart: unless-stopped
     environment:
       NODE_ENV: production
       DATABASE_URL: "postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres:5432/bg"
       WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:?WEBAUTHN_RP_ID is required}
       WEBAUTHN_ORIGIN: ${WEBAUTHN_ORIGIN:?WEBAUTHN_ORIGIN is required}
+      S3_INTERNAL_ENDPOINT: http://minio:9000
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:?S3_PUBLIC_ENDPOINT is required}
+      S3_REGION: us-east-1
+      S3_BUCKET: bg-files
+      S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
+      S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      S3_FORCE_PATH_STYLE: "true"
+      NODE_OPTIONS: "--import ./instrumentation.mjs"
+      OTEL_ENABLED: "${OTEL_ENABLED:-false}"
+      OTEL_SERVICE_NAME: bg-web
+      OTEL_RESOURCE_ATTRIBUTES: "deployment.environment.name=${DEPLOYMENT_ENVIRONMENT:-production}"
+      OTEL_NODE_RESOURCE_DETECTORS: env,host,os,process,serviceinstance,container
+      OTEL_NODE_ENABLED_INSTRUMENTATIONS: http,pg,aws-sdk,runtime-node
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: none
+      OTEL_EXPORTER_OTLP_ENDPOINT: "${OTEL_EXPORTER_OTLP_ENDPOINT:-}"
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_EXPORTER_OTLP_COMPRESSION: gzip
+      OTEL_EXPORTER_OTLP_HEADERS: "Authorization=Bearer%20${OTEL_BEARER_TOKEN:-}"
+      OTEL_EXPORTER_OTLP_TIMEOUT: "5000"
+      OTEL_LOG_LEVEL: info
     expose:
       - "3000"
     networks:
@@ -26,8 +51,39 @@ services:
     networks:
       - app
 
+  minio:
+    image: quay.io/minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_API_CORS_ALLOW_ORIGIN: ${WEBAUTHN_ORIGIN:?WEBAUTHN_ORIGIN is required}
+      MINIO_API_STALE_UPLOADS_CLEANUP_INTERVAL: 1h
+      MINIO_API_STALE_UPLOADS_EXPIRY: 24h
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data:/data
+    networks:
+      - app
+
+  minio-init:
+    image: quay.io/minio/mc:latest
+    depends_on:
+      - minio
+    environment:
+      MINIO_BUCKET: bg-files
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - ./infra/minio/init.sh:/init.sh:ro
+    entrypoint: ["/bin/sh", "/init.sh"]
+    networks:
+      - app
+
 volumes:
   postgres_data:
+  minio_data:
 
 networks:
   app:

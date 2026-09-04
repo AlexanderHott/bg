@@ -43,6 +43,20 @@ The build output is a self-contained Node server. To deploy, push the `dist/` di
 
 For host-specific presets (Vercel, Netlify, Cloudflare, AWS Lambda, etc.) and tuning, see https://v3.nitro.build/deploy.
 
+## Observability pilot
+
+The production container preloads OpenTelemetry auto-instrumentation for Node HTTP, PostgreSQL, AWS SDK, and runtime metrics. It is disabled by default so local Compose does not depend on the shared telemetry service.
+
+To enable it in Dokploy, set:
+
+```dotenv
+OTEL_ENABLED=true
+OTEL_BEARER_TOKEN=<the shared Collector token>
+OTEL_EXPORTER_OTLP_ENDPOINT=<the shared Collector URL>
+```
+
+The remaining exporter settings live in `docker-compose.yml`. Logs remain disabled during the pilot; application logs will be added only after traces and metrics have been checked for useful coverage and safe attributes.
+
 ## Routing
 
 This project uses [TanStack Router](https://tanstack.com/router) with file-based routing. Routes are managed as files in `src/routes`.

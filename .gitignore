@@ -8,6 +8,7 @@ dist-ssr
 .tanstack
 .wrangler
 .output
+/.fallow-artifacts/
 .vinxi
 __unconfig*
 
