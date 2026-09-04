@@ -22,6 +22,8 @@ jobs:
 
       - name: Analyze code health
         uses: fallow-rs/fallow@v3
+        with:
+          artifacts-dir: .fallow-artifacts
 
       - name: Lint Code
         run: vp run lint
