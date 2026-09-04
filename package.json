@@ -13,7 +13,7 @@
     "start": "node .output/server/index.mjs",
     "typecheck": "tsc --noEmit",
     "preview": "vp preview",
-    "ci": "vp run format && vp run lint && vp run typecheck && vp run build"
+    "ci": "vp run format && vp run lint && vp run typecheck && vp run build && vp run fallow"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1121.0",
