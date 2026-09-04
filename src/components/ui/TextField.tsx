@@ -63,31 +63,12 @@ const TextFieldInput = <T extends ValidComponent = "input">(
   );
 };
 
-type TextFieldTextAreaProps<T extends ValidComponent = "textarea"> =
-  TextFieldPrimitive.TextFieldTextAreaProps<T> & { class?: string | undefined };
-
-const TextFieldTextArea = <T extends ValidComponent = "textarea">(
-  props: PolymorphicProps<T, TextFieldTextAreaProps<T>>,
-) => {
-  const [local, others] = splitProps(props as TextFieldTextAreaProps, ["class"]);
-  return (
-    <TextFieldPrimitive.TextArea
-      class={cn(
-        "flex min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-        local.class,
-      )}
-      {...others}
-    />
-  );
-};
-
 const labelVariants = cva(
   "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
   {
     variants: {
       variant: {
         label: "data-[invalid]:text-destructive",
-        description: "font-normal text-muted-foreground",
         error: "text-xs text-destructive",
       },
     },
@@ -107,23 +88,6 @@ const TextFieldLabel = <T extends ValidComponent = "label">(
   return <TextFieldPrimitive.Label class={cn(labelVariants(), local.class)} {...others} />;
 };
 
-type TextFieldDescriptionProps<T extends ValidComponent = "div"> =
-  TextFieldPrimitive.TextFieldDescriptionProps<T> & {
-    class?: string | undefined;
-  };
-
-const TextFieldDescription = <T extends ValidComponent = "div">(
-  props: PolymorphicProps<T, TextFieldDescriptionProps<T>>,
-) => {
-  const [local, others] = splitProps(props as TextFieldDescriptionProps, ["class"]);
-  return (
-    <TextFieldPrimitive.Description
-      class={cn(labelVariants({ variant: "description" }), local.class)}
-      {...others}
-    />
-  );
-};
-
 type TextFieldErrorMessageProps<T extends ValidComponent = "div"> =
   TextFieldPrimitive.TextFieldErrorMessageProps<T> & {
     class?: string | undefined;
@@ -141,11 +105,4 @@ const TextFieldErrorMessage = <T extends ValidComponent = "div">(
   );
 };
 
-export {
-  TextField,
-  TextFieldInput,
-  TextFieldTextArea,
-  TextFieldLabel,
-  TextFieldDescription,
-  TextFieldErrorMessage,
-};
+export { TextField, TextFieldInput, TextFieldLabel, TextFieldErrorMessage };

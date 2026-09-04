@@ -184,7 +184,7 @@ export async function abortMultipartUpload(options: {
   return ok(undefined);
 }
 
-export type UploadedPart = {
+type UploadedPart = {
   partNumber: number;
   etag: string;
   sizeBytes: number;
@@ -211,57 +211,63 @@ export async function listUploadedParts(options: {
   let partNumberMarker: string | undefined;
 
   while (true) {
-    const command = new ListPartsCommand({
-      Bucket: envServer.S3_BUCKET,
-      Key: options.key,
-      UploadId: options.uploadId,
-      PartNumberMarker: partNumberMarker,
-    });
-
-    const responseResult = await tryAsync(() =>
-      internalClient.send(command, {
-        abortSignal: options.signal,
-      }),
-    );
-
-    if (!responseResult.ok) {
-      if (responseResult.error instanceof NoSuchUpload) {
-        return err({ kind: "UPLOAD_NOT_FOUND" });
-      }
-
-      return err({
-        kind: "LIST_PARTS_FAILED",
-        cause: responseResult.error,
-      });
-    }
-
-    const response = responseResult.value;
-
-    for (const part of response.Parts ?? []) {
-      if (part.PartNumber === undefined || part.ETag === undefined || part.Size === undefined) {
-        return err({ kind: "INVALID_LIST_PARTS_RESPONSE" });
-      }
-
-      parts.push({
-        partNumber: part.PartNumber,
-        etag: part.ETag,
-        sizeBytes: part.Size,
-      });
-    }
-
-    if (!response.IsTruncated) {
-      return ok(parts);
-    }
-
-    if (!response.NextPartNumberMarker) {
-      return err({ kind: "INVALID_LIST_PARTS_RESPONSE" });
-    }
-
-    partNumberMarker = response.NextPartNumberMarker;
+    const pageResult = await listUploadedPartsPage(options, partNumberMarker);
+    if (!pageResult.ok) return pageResult;
+    parts.push(...pageResult.value.parts);
+    if (!pageResult.value.nextPartNumberMarker) return ok(parts);
+    partNumberMarker = pageResult.value.nextPartNumberMarker;
   }
 }
 
-export type CompletedUploadPart = {
+async function listUploadedPartsPage(
+  options: { key: string; uploadId: string; signal?: AbortSignal },
+  partNumberMarker: string | undefined,
+): Promise<
+  Result<
+    { parts: Array<UploadedPart>; nextPartNumberMarker: string | undefined },
+    ListUploadedPartsError
+  >
+> {
+  const command = new ListPartsCommand({
+    Bucket: envServer.S3_BUCKET,
+    Key: options.key,
+    UploadId: options.uploadId,
+    PartNumberMarker: partNumberMarker,
+  });
+  const responseResult = await tryAsync(() =>
+    internalClient.send(command, { abortSignal: options.signal }),
+  );
+  if (!responseResult.ok) {
+    if (responseResult.error instanceof NoSuchUpload) return err({ kind: "UPLOAD_NOT_FOUND" });
+    return err({ kind: "LIST_PARTS_FAILED", cause: responseResult.error });
+  }
+
+  const response = responseResult.value;
+  const partsResult = parseUploadedParts(response.Parts ?? []);
+  if (!partsResult.ok) return partsResult;
+  if (response.IsTruncated && !response.NextPartNumberMarker) {
+    return err({ kind: "INVALID_LIST_PARTS_RESPONSE" });
+  }
+  return ok({
+    parts: partsResult.value,
+    nextPartNumberMarker: response.IsTruncated ? response.NextPartNumberMarker : undefined,
+  });
+}
+
+function parseUploadedParts(
+  parts: ReadonlyArray<{ PartNumber?: number; ETag?: string; Size?: number }>,
+) {
+  const parsed: Array<UploadedPart> = [];
+  for (const part of parts) {
+    if (part.PartNumber === undefined || part.ETag === undefined || part.Size === undefined) {
+      return err({ kind: "INVALID_LIST_PARTS_RESPONSE" } as const);
+    }
+    parsed.push({ partNumber: part.PartNumber, etag: part.ETag, sizeBytes: part.Size });
+  }
+  return ok(parsed);
+}
+
+type CompletedUploadPart = {
   partNumber: number;
   etag: string;
 };
@@ -373,63 +379,6 @@ export async function statObject(options: {
     etag: response.ETag,
   });
 }
-export type OpenObjectResult = {
-  body: ReadableStream<Uint8Array>;
-  sizeBytes?: number;
-  mediaType?: string;
-};
-
-export type OpenObjectError =
-  | {
-      kind: "OBJECT_NOT_FOUND";
-    }
-  | {
-      kind: "OBJECT_BODY_MISSING";
-    }
-  | {
-      kind: "OPEN_OBJECT_FAILED";
-      cause: unknown;
-    };
-
-export async function openObject(options: {
-  key: string;
-  signal?: AbortSignal;
-}): Promise<Result<OpenObjectResult, OpenObjectError>> {
-  const command = new GetObjectCommand({
-    Bucket: envServer.S3_BUCKET,
-    Key: options.key,
-  });
-
-  const responseResult = await tryAsync(() =>
-    internalClient.send(command, {
-      abortSignal: options.signal,
-    }),
-  );
-
-  if (!responseResult.ok) {
-    if (responseResult.error instanceof NoSuchKey || responseResult.error instanceof NotFound) {
-      return err({ kind: "OBJECT_NOT_FOUND" });
-    }
-
-    return err({
-      kind: "OPEN_OBJECT_FAILED",
-      cause: responseResult.error,
-    });
-  }
-
-  const response = responseResult.value;
-
-  if (!response.Body) {
-    return err({ kind: "OBJECT_BODY_MISSING" });
-  }
-
-  return ok({
-    body: response.Body.transformToWebStream(),
-    sizeBytes: response.ContentLength,
-    mediaType: response.ContentType,
-  });
-}
-
 export type DeleteObjectError = {
   kind: "DELETE_OBJECT_FAILED";
   cause: unknown;

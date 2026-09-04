@@ -12,8 +12,7 @@ import {
   isSupportedAlgorithm,
   MAX_CREDENTIAL_ID_LENGTH,
   parseBase64url,
-  parseAuthenticatorData,
-  rpIdHashMatches,
+  verifyAuthenticatorData,
   verifyClientData,
   type SupportedCoseAlgorithm,
   type WebAuthnPolicy,
@@ -143,29 +142,13 @@ export async function verifyRegistrationResponse(
     return err({ kind: clientDataResult.error, cause: undefined });
   }
 
-  const authenticatorDataBytesResult = parseBase64url(credential.response.authenticatorData);
-  if (!authenticatorDataBytesResult.ok) {
-    return err({
-      kind: "INVALID_AUTHENTICATOR_DATA",
-      cause: authenticatorDataBytesResult.error,
-    });
-  }
-
-  const authenticatorDataResult = parseAuthenticatorData(authenticatorDataBytesResult.value);
-  if (!authenticatorDataResult.ok) {
-    return err({ kind: authenticatorDataResult.error, cause: undefined });
-  }
+  const authenticatorDataResult = await verifyAuthenticatorData({
+    encodedData: credential.response.authenticatorData,
+    policy: input.policy,
+  });
+  if (!authenticatorDataResult.ok) return authenticatorDataResult;
   const authenticatorData = authenticatorDataResult.value;
 
-  if (!(await rpIdHashMatches(input.policy.rpId, authenticatorData.rpIdHash))) {
-    return err({ kind: "RP_ID_MISMATCH", cause: undefined });
-  }
-  if (!authenticatorData.userPresent) {
-    return err({ kind: "USER_PRESENCE_REQUIRED", cause: undefined });
-  }
-  if (input.policy.requireUserVerification && !authenticatorData.userVerified) {
-    return err({ kind: "USER_VERIFICATION_REQUIRED", cause: undefined });
-  }
   if (!authenticatorData.hasAttestedCredentialData) {
     return err({ kind: "MISSING_CREDENTIAL_DATA", cause: undefined });
   }

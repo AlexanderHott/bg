@@ -1,0 +1,16 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": ["instrumentation.mjs"],
+  "ignoreDependencies": ["pg"],
+  "duplicates": {
+    // Pair-only similarity is useful review context, but not a reason to force a shared module.
+    "minOccurrences": 3
+  },
+  "health": {
+    "maxUnitSize": 120,
+    // Fallow estimates CRAP without coverage and treats tested private functions as uncovered.
+    // Restore the default once the test command emits Istanbul coverage for Fallow to consume.
+    "maxCrap": 1000,
+    "ignore": ["**/*.test.ts"]
+  }
+}

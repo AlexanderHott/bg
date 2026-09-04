@@ -43,144 +43,157 @@ export type UploadFileError =
 
 type PartUploadFailureReason = "HTTP" | "MISSING_ETAG" | "NETWORK" | "URL_EXPIRED";
 
-export async function uploadFile(options: {
+type UploadFileOptions = {
   organizationSlug: string;
   requestId: string;
   file: File;
   signal: AbortSignal;
   onProgress?: (progress: UploadProgress) => void;
-}): Promise<Result<ReadyFile, UploadFileError>> {
+};
+
+type RetryUploadRound = { kind: "RETRY_UPLOAD_ROUND" };
+
+const retryUploadRound: RetryUploadRound = { kind: "RETRY_UPLOAD_ROUND" };
+
+export async function uploadFile(
+  options: UploadFileOptions,
+): Promise<Result<ReadyFile, UploadFileError>> {
   for (let round = 1; round <= MAX_UPLOAD_ROUNDS; round += 1) {
-    if (options.signal.aborted) {
-      return err({ kind: "CANCELLED" });
-    }
-
-    const beginRequestResult = await tryAsync(() =>
-      beginFileUploadFn({
-        signal: options.signal,
-        data: {
-          organizationSlug: options.organizationSlug,
-          requestId: options.requestId,
-          name: options.file.name,
-          mediaType: options.file.type,
-          sizeBytes: options.file.size,
-        },
-      }),
-    );
-    if (!beginRequestResult.ok) {
-      if (options.signal.aborted) {
-        return err({ kind: "CANCELLED" });
-      }
-
-      return err({ kind: "SERVER_REQUEST_FAILED", cause: beginRequestResult.error });
-    }
-    if (options.signal.aborted) {
-      return err({ kind: "CANCELLED" });
-    }
-
-    const beginResult = beginRequestResult.value;
-    if (!beginResult.ok) {
-      return err({ kind: "FILE_ERROR", error: beginResult.error });
-    }
-    if (beginResult.value.kind === "ready") {
-      options.onProgress?.({
-        phase: "finalizing",
-        uploadedBytes: options.file.size,
-        totalBytes: options.file.size,
-      });
-      return ok(beginResult.value.file);
-    }
-
-    const plan = beginResult.value;
-
-    const uploadResult = await tryAsync(() =>
-      uploadMissingParts({
-        plan,
-        file: options.file,
-        signal: options.signal,
-        onProgress: options.onProgress,
-      }),
-    );
-    if (!uploadResult.ok) {
-      if (options.signal.aborted) {
-        return err({ kind: "CANCELLED" });
-      }
-
-      const failure = uploadResult.error;
-      if (
-        failure instanceof PartUploadFailure &&
-        failure.reason === "URL_EXPIRED" &&
-        round < MAX_UPLOAD_ROUNDS
-      ) {
-        continue;
-      }
-      if (failure instanceof PartUploadFailure) {
-        return err({
-          kind: "PART_UPLOAD_FAILED",
-          partNumber: failure.partNumber,
-          reason: failure.reason,
-          status: failure.status,
-        });
-      }
-
-      return err({ kind: "SERVER_REQUEST_FAILED", cause: failure });
-    }
-
-    const parts = [...plan.uploadedParts, ...uploadResult.value]
-      .map(({ partNumber, etag }) => ({ partNumber, etag }))
-      .sort((left, right) => left.partNumber - right.partNumber);
-
-    if (options.signal.aborted) {
-      return err({ kind: "CANCELLED" });
-    }
-
-    options.onProgress?.({
-      phase: "finalizing",
-      uploadedBytes: options.file.size,
-      totalBytes: options.file.size,
-    });
-
-    const completeRequestResult = await tryAsync(() =>
-      completeFileUploadFn({
-        signal: options.signal,
-        data: {
-          organizationSlug: options.organizationSlug,
-          fileId: plan.fileId,
-          parts,
-        },
-      }),
-    );
-    if (!completeRequestResult.ok) {
-      if (options.signal.aborted) {
-        return err({ kind: "CANCELLED" });
-      }
-      if (round < MAX_UPLOAD_ROUNDS) {
-        continue;
-      }
-
-      return err({ kind: "SERVER_REQUEST_FAILED", cause: completeRequestResult.error });
-    }
-    if (options.signal.aborted) {
-      return err({ kind: "CANCELLED" });
-    }
-
-    const completeResult = completeRequestResult.value;
-    if (completeResult.ok) {
-      return ok(completeResult.value);
-    }
-    if (
-      round < MAX_UPLOAD_ROUNDS &&
-      (completeResult.error.kind === "INVALID_UPLOAD_PARTS" ||
-        completeResult.error.kind === "INVALID_UPLOAD_STATE" ||
-        completeResult.error.kind === "UPLOAD_NOT_FOUND")
-    ) {
-      continue;
-    }
-
-    return err({ kind: "FILE_ERROR", error: completeResult.error });
+    const result = await uploadFileRound(options, round < MAX_UPLOAD_ROUNDS);
+    if (result.ok) return result;
+    if (result.error.kind !== "RETRY_UPLOAD_ROUND") return err(result.error);
   }
 
   return err({ kind: "RETRY_LIMIT_REACHED" });
+}
+
+async function uploadFileRound(
+  options: UploadFileOptions,
+  canRetry: boolean,
+): Promise<Result<ReadyFile, UploadFileError | RetryUploadRound>> {
+  const planResult = await requestUploadPlan(options);
+  if (!planResult.ok) return planResult;
+
+  const plan = planResult.value;
+  if (plan.kind === "ready") {
+    reportFinalizing(options);
+    return ok(plan.file);
+  }
+
+  const partsResult = await collectCompletedParts(options, plan, canRetry);
+  if (!partsResult.ok) return partsResult;
+
+  return completeUpload(options, plan.fileId, partsResult.value, canRetry);
+}
+
+async function requestUploadPlan(
+  options: UploadFileOptions,
+): Promise<Result<FileUploadPlan, UploadFileError>> {
+  if (options.signal.aborted) return err({ kind: "CANCELLED" });
+
+  const requestResult = await tryAsync(() =>
+    beginFileUploadFn({
+      signal: options.signal,
+      data: {
+        organizationSlug: options.organizationSlug,
+        requestId: options.requestId,
+        name: options.file.name,
+        mediaType: options.file.type,
+        sizeBytes: options.file.size,
+      },
+    }),
+  );
+  if (!requestResult.ok) {
+    if (options.signal.aborted) return err({ kind: "CANCELLED" });
+    return err({ kind: "SERVER_REQUEST_FAILED", cause: requestResult.error });
+  }
+  if (options.signal.aborted) return err({ kind: "CANCELLED" });
+  if (!requestResult.value.ok) {
+    return err({ kind: "FILE_ERROR", error: requestResult.value.error });
+  }
+
+  return ok(requestResult.value.value);
+}
+
+async function collectCompletedParts(
+  options: UploadFileOptions,
+  plan: Extract<FileUploadPlan, { kind: "upload" }>,
+  canRetry: boolean,
+): Promise<Result<Array<CompletedUploadPart>, UploadFileError | RetryUploadRound>> {
+  const uploadResult = await tryAsync(() =>
+    uploadMissingParts({
+      plan,
+      file: options.file,
+      signal: options.signal,
+      onProgress: options.onProgress,
+    }),
+  );
+  if (!uploadResult.ok) {
+    if (options.signal.aborted) return err({ kind: "CANCELLED" });
+
+    const failure = uploadResult.error;
+    if (failure instanceof PartUploadFailure) {
+      if (failure.reason === "URL_EXPIRED" && canRetry) return err(retryUploadRound);
+      return err({
+        kind: "PART_UPLOAD_FAILED",
+        partNumber: failure.partNumber,
+        reason: failure.reason,
+        status: failure.status,
+      });
+    }
+
+    return err({ kind: "SERVER_REQUEST_FAILED", cause: failure });
+  }
+
+  return ok(
+    [...plan.uploadedParts, ...uploadResult.value]
+      .map(({ partNumber, etag }) => ({ partNumber, etag }))
+      .sort((left, right) => left.partNumber - right.partNumber),
+  );
+}
+
+async function completeUpload(
+  options: UploadFileOptions,
+  fileId: string,
+  parts: Array<CompletedUploadPart>,
+  canRetry: boolean,
+): Promise<Result<ReadyFile, UploadFileError | RetryUploadRound>> {
+  if (options.signal.aborted) return err({ kind: "CANCELLED" });
+  reportFinalizing(options);
+
+  const requestResult = await tryAsync(() =>
+    completeFileUploadFn({
+      signal: options.signal,
+      data: { organizationSlug: options.organizationSlug, fileId, parts },
+    }),
+  );
+  if (!requestResult.ok) {
+    if (options.signal.aborted) return err({ kind: "CANCELLED" });
+    if (canRetry) return err(retryUploadRound);
+    return err({ kind: "SERVER_REQUEST_FAILED", cause: requestResult.error });
+  }
+  if (options.signal.aborted) return err({ kind: "CANCELLED" });
+
+  const result = requestResult.value;
+  if (result.ok) return ok(result.value);
+  if (canRetry && retryableCompletionError(result.error)) return err(retryUploadRound);
+  return err({ kind: "FILE_ERROR", error: result.error });
+}
+
+function retryableCompletionError(error: FileError) {
+  return (
+    error.kind === "INVALID_UPLOAD_PARTS" ||
+    error.kind === "INVALID_UPLOAD_STATE" ||
+    error.kind === "UPLOAD_NOT_FOUND"
+  );
+}
+
+function reportFinalizing(options: UploadFileOptions) {
+  options.onProgress?.({
+    phase: "finalizing",
+    uploadedBytes: options.file.size,
+    totalBytes: options.file.size,
+  });
 }
 
 async function uploadMissingParts(options: {

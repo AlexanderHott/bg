@@ -187,16 +187,24 @@ export function ImageUploader(props: {
     uploadController.abort();
   }
 
+  function handleUploadAction() {
+    if (status() === "uploaded") {
+      openFileDialog();
+      return;
+    }
+    if (isPending()) {
+      cancelUpload();
+      return;
+    }
+    void startUpload();
+  }
+
   return (
     <div class="flex flex-col gap-4">
       <div
         class={cn(
           "group relative flex min-h-80 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border border-dashed p-6 text-center transition-colors outline-none sm:p-10",
-          dragState() === "accepted"
-            ? "border-foreground bg-muted"
-            : dragState() === "rejected"
-              ? "border-destructive bg-destructive/5"
-              : "border-border hover:border-muted-foreground hover:bg-muted/40",
+          dropZoneStateClass(dragState()),
           isPending() ? "pointer-events-none cursor-wait" : undefined,
         )}
         role="button"
@@ -227,13 +235,7 @@ export function ImageUploader(props: {
           fallback={
             <div class="flex max-w-md flex-col items-center">
               <UploadIcon />
-              <p class="mt-5 font-medium">
-                {dragState() === "accepted"
-                  ? "drop the image here"
-                  : dragState() === "rejected"
-                    ? "choose one supported image"
-                    : "drop an image here"}
-              </p>
+              <p class="mt-5 font-medium">{dropZonePrompt(dragState())}</p>
               <p class="text-muted-foreground mt-2 text-sm">
                 or click to choose one. jpeg, png, webp, or avif.
               </p>
@@ -332,27 +334,49 @@ export function ImageUploader(props: {
         <Show when={selectedFile()}>
           <Button
             type="button"
-            variant={isPending() || status() === "uploaded" ? "outline" : "default"}
-            onClick={() => {
-              if (status() === "uploaded") openFileDialog();
-              else if (isPending()) cancelUpload();
-              else void startUpload();
-            }}
+            variant={uploadButtonVariant(status(), isPending())}
+            onClick={handleUploadAction}
           >
-            {status() === "uploaded"
-              ? "[ upload another ]"
-              : status() === "cancelling"
-                ? "cancelling..."
-                : isPending()
-                  ? "[ cancel upload ]"
-                  : errorMessage() || statusMessage()
-                    ? "[ retry upload ]"
-                    : "[ upload image ]"}
+            {uploadButtonLabel(status(), isPending(), Boolean(errorMessage() || statusMessage()))}
           </Button>
         </Show>
       </div>
     </div>
   );
+}
+
+function dropZoneStateClass(state: DragState | undefined) {
+  switch (state) {
+    case "accepted":
+      return "border-foreground bg-muted";
+    case "rejected":
+      return "border-destructive bg-destructive/5";
+    case undefined:
+      return "border-border hover:border-muted-foreground hover:bg-muted/40";
+  }
+}
+
+function dropZonePrompt(state: DragState | undefined) {
+  switch (state) {
+    case "accepted":
+      return "drop the image here";
+    case "rejected":
+      return "choose one supported image";
+    case undefined:
+      return "drop an image here";
+  }
+}
+
+function uploadButtonVariant(status: UploadStatus, isPending: boolean) {
+  return isPending || status === "uploaded" ? "outline" : "default";
+}
+
+function uploadButtonLabel(status: UploadStatus, isPending: boolean, hasMessage: boolean) {
+  if (status === "uploaded") return "[ upload another ]";
+  if (status === "cancelling") return "cancelling...";
+  if (isPending) return "[ cancel upload ]";
+  if (hasMessage) return "[ retry upload ]";
+  return "[ upload image ]";
 }
 
 function validateImage(file: File) {

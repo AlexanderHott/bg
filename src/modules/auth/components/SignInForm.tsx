@@ -4,14 +4,13 @@ import { useServerFn } from "@tanstack/solid-start";
 import { createSignal } from "solid-js";
 import * as v from "valibot";
 
+import {
+  FormSubmitButton,
+  FormTextField,
+  selectSubmissionState,
+} from "@/components/forms/FormControls";
 import { Button } from "@/components/ui/Button";
 import { Separator } from "@/components/ui/Separator";
-import {
-  TextField,
-  TextFieldErrorMessage,
-  TextFieldInput,
-  TextFieldLabel,
-} from "@/components/ui/TextField";
 
 import { authenticateWithPasskey } from "../lib/webauthn/browser";
 import { beginPasskeyAuthFn, finishPasskeyAuthFn, signInFn } from "../serverFunctions";
@@ -69,74 +68,30 @@ export function SignInForm() {
         <form.Field
           name="username"
           children={(field) => (
-            <TextField
-              validationState={
-                field().state.meta.isTouched && field().state.meta.errors.length > 0
-                  ? "invalid"
-                  : "valid"
-              }
-            >
-              <TextFieldLabel>username</TextFieldLabel>
-              <TextFieldInput
-                type="text"
-                autocomplete="username webauthn"
-                name={field().name}
-                value={field().state.value}
-                onBlur={field().handleBlur}
-                onInput={(e) => {
-                  const value = e.currentTarget.value;
-                  field().handleChange(value);
-                }}
-              />
-              <TextFieldErrorMessage>
-                {field()
-                  .state.meta.errors.map((e) => (typeof e === "string" ? e : e?.message))
-                  .join(", ")}
-              </TextFieldErrorMessage>
-            </TextField>
+            <FormTextField
+              label="username"
+              type="text"
+              autocomplete="username webauthn"
+              field={field}
+            />
           )}
         />
 
         <form.Field
           name="password"
           children={(field) => (
-            <TextField
-              validationState={
-                field().state.meta.isTouched && field().state.meta.errors.length > 0
-                  ? "invalid"
-                  : "valid"
-              }
-            >
-              <TextFieldLabel>password</TextFieldLabel>
-              <TextFieldInput
-                type="password"
-                autocomplete="current-password"
-                name={field().name}
-                value={field().state.value}
-                onBlur={field().handleBlur}
-                onInput={(e) => field().handleChange(e.currentTarget.value)}
-              />
-              <TextFieldErrorMessage>
-                {field()
-                  .state.meta.errors.map((e) => e?.message)
-                  .join(", ")}
-              </TextFieldErrorMessage>
-            </TextField>
+            <FormTextField
+              label="password"
+              type="password"
+              autocomplete="current-password"
+              field={field}
+            />
           )}
         />
 
         <form.Subscribe
-          selector={(state) => ({
-            canSubmit: state.canSubmit,
-            isSubmitting: state.isSubmitting,
-          })}
-          children={(state) => {
-            return (
-              <Button type="submit" disabled={!state().canSubmit}>
-                {state().isSubmitting ? "..." : "[ sign in ]"}
-              </Button>
-            );
-          }}
+          selector={selectSubmissionState}
+          children={(state) => <FormSubmitButton label="sign in" {...state()} />}
         />
       </form>
 

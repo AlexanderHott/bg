@@ -103,6 +103,36 @@ describe("uploadFile", () => {
       totalBytes: 6,
     });
   });
+
+  test("starts a fresh round when completion fails", async () => {
+    const controller = new AbortController();
+    const file = new File(["abcdef"], "image.png", { type: "image/png" });
+
+    serverFunctions.beginFileUploadFn
+      .mockResolvedValueOnce({
+        ok: true,
+        value: {
+          kind: "upload",
+          fileId: readyFile.id,
+          partSizeBytes: file.size,
+          uploadedParts: [{ partNumber: 1, etag: '"etag-1"', sizeBytes: file.size }],
+          parts: [],
+        },
+      })
+      .mockResolvedValueOnce({ ok: true, value: { kind: "ready", file: readyFile } });
+    serverFunctions.completeFileUploadFn.mockRejectedValueOnce(new Error("request failed"));
+
+    const result = await uploadFile({
+      organizationSlug: "organization",
+      requestId: "01994fd5-7849-7de8-8c44-045dd8e74ac9",
+      file,
+      signal: controller.signal,
+    });
+
+    expect(result).toEqual({ ok: true, value: readyFile });
+    expect(serverFunctions.beginFileUploadFn).toHaveBeenCalledTimes(2);
+    expect(serverFunctions.completeFileUploadFn).toHaveBeenCalledTimes(1);
+  });
 });
 
 class FakeXMLHttpRequest {

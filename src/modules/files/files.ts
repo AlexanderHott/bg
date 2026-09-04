@@ -134,33 +134,23 @@ export type FileError =
       actualSizeBytes: number;
     };
 
-export async function beginFileUpload(options: {
+type BeginFileUploadOptions = {
   organizationId: string;
   requestId: string;
   name: string;
   mediaType: string;
   sizeBytes: number;
   signal: AbortSignal;
-}): Promise<Result<FileUploadPlan, FileError>> {
+};
+
+export async function beginFileUpload(
+  options: BeginFileUploadOptions,
+): Promise<Result<FileUploadPlan, FileError>> {
   const invalidField = validateFile(options);
-  if (invalidField) {
-    return err({ kind: "INVALID_FILE", field: invalidField });
-  }
+  if (invalidField) return err({ kind: "INVALID_FILE", field: invalidField });
 
-  const existingResult = await tryAsync(() =>
-    findFileByRequestId(options.organizationId, options.requestId),
-  );
-  if (!existingResult.ok) {
-    return databaseFailure(existingResult.error);
-  }
-
-  if (existingResult.value) {
-    if (!requestMatches(existingResult.value.file, options)) {
-      return err({ kind: "REQUEST_CONFLICT" });
-    }
-
-    return prepareFileUpload(existingResult.value, options.signal);
-  }
+  const existing = await loadFileByRequestId(options.organizationId, options.requestId);
+  if (existing) return resumeFileUpload(existing, options);
 
   const fileId = randomUUIDv7();
   const storageKey = createStorageKey(options.organizationId, fileId);
@@ -169,94 +159,90 @@ export async function beginFileUpload(options: {
     mediaType: options.mediaType,
     signal: options.signal,
   });
-  if (!startResult.ok) {
-    return storageFailure(startResult.error);
-  }
+  if (!startResult.ok) return storageFailure(startResult.error);
 
   const bucketUploadId = startResult.value;
   const insertResult = await tryAsync(() =>
-    db.transaction(async (tx) => {
-      const [file] = await tx
-        .insert(fileSchema.files)
-        .values({
-          id: fileId,
-          organizationId: options.organizationId,
-          requestId: options.requestId,
-          state: "pending",
-          name: options.name,
-          mediaType: options.mediaType,
-          expectedSizeBytes: options.sizeBytes,
-          storageKey,
-        })
-        .onConflictDoNothing({
-          target: [fileSchema.files.organizationId, fileSchema.files.requestId],
-        })
-        .returning();
-
-      if (!file) {
-        return undefined;
-      }
-
-      const [upload] = await tx
-        .insert(fileSchema.fileUploads)
-        .values({
-          fileId,
-          bucketUploadId,
-          partSizeBytes: PART_SIZE_BYTES,
-          expiresAt: new Date(Date.now() + UPLOAD_LIFETIME_MS),
-        })
-        .returning();
-
-      if (!upload) {
-        throw new Error("File upload insert returned no row");
-      }
-
-      return { file, upload } satisfies FileWithUpload;
-    }),
+    insertPendingFile(options, fileId, storageKey, bucketUploadId),
   );
-
   if (!insertResult.ok) {
-    const recoveryResult = await tryAsync(() =>
-      findFileByRequestId(options.organizationId, options.requestId),
-    );
-    if (!recoveryResult.ok) {
-      return databaseFailure(insertResult.error);
-    }
-    if (!recoveryResult.value) {
-      await minio.abortMultipartUpload({ key: storageKey, uploadId: bucketUploadId });
-      return databaseFailure(insertResult.error);
-    }
-
-    if (recoveryResult.value.upload?.bucketUploadId !== bucketUploadId) {
-      await minio.abortMultipartUpload({ key: storageKey, uploadId: bucketUploadId });
-    }
-    if (!requestMatches(recoveryResult.value.file, options)) {
-      return err({ kind: "REQUEST_CONFLICT" });
-    }
-
-    return prepareFileUpload(recoveryResult.value, options.signal);
+    return recoverFailedFileInsert(options, storageKey, bucketUploadId, insertResult.error);
   }
-
-  if (insertResult.value) {
-    return prepareFileUpload(insertResult.value, options.signal);
-  }
+  if (insertResult.value) return prepareFileUpload(insertResult.value, options.signal);
 
   await minio.abortMultipartUpload({ key: storageKey, uploadId: bucketUploadId });
+  const winner = await loadFileByRequestId(options.organizationId, options.requestId);
+  if (!winner) throw new Error("Conflicting file request disappeared");
+  return resumeFileUpload(winner, options);
+}
 
-  const winnerResult = await tryAsync(() =>
+async function insertPendingFile(
+  options: BeginFileUploadOptions,
+  fileId: string,
+  storageKey: string,
+  bucketUploadId: string,
+) {
+  return db.transaction(async (tx) => {
+    const [file] = await tx
+      .insert(fileSchema.files)
+      .values({
+        id: fileId,
+        organizationId: options.organizationId,
+        requestId: options.requestId,
+        state: "pending",
+        name: options.name,
+        mediaType: options.mediaType,
+        expectedSizeBytes: options.sizeBytes,
+        storageKey,
+      })
+      .onConflictDoNothing({
+        target: [fileSchema.files.organizationId, fileSchema.files.requestId],
+      })
+      .returning();
+    if (!file) return undefined;
+
+    const [upload] = await tx
+      .insert(fileSchema.fileUploads)
+      .values({
+        fileId,
+        bucketUploadId,
+        partSizeBytes: PART_SIZE_BYTES,
+        expiresAt: new Date(Date.now() + UPLOAD_LIFETIME_MS),
+      })
+      .returning();
+    if (!upload) throw new Error("File upload insert returned no row");
+    return { file, upload } satisfies FileWithUpload;
+  });
+}
+
+async function recoverFailedFileInsert(
+  options: BeginFileUploadOptions,
+  storageKey: string,
+  bucketUploadId: string,
+  insertError: unknown,
+): Promise<Result<FileUploadPlan, FileError>> {
+  const recoveryResult = await tryAsync(() =>
     findFileByRequestId(options.organizationId, options.requestId),
   );
-  if (!winnerResult.ok) {
-    return databaseFailure(winnerResult.error);
-  }
-  if (!winnerResult.value) {
-    throw new Error("Conflicting file request disappeared");
-  }
-  if (!requestMatches(winnerResult.value.file, options)) {
-    return err({ kind: "REQUEST_CONFLICT" });
-  }
+  if (!recoveryResult.ok) return databaseFailure(insertError);
 
-  return prepareFileUpload(winnerResult.value, options.signal);
+  const recovered = recoveryResult.value;
+  if (!recovered) {
+    await minio.abortMultipartUpload({ key: storageKey, uploadId: bucketUploadId });
+    return databaseFailure(insertError);
+  }
+  if (recovered.upload?.bucketUploadId !== bucketUploadId) {
+    await minio.abortMultipartUpload({ key: storageKey, uploadId: bucketUploadId });
+  }
+  return resumeFileUpload(recovered, options);
+}
+
+async function resumeFileUpload(
+  fileWithUpload: FileWithUpload,
+  options: BeginFileUploadOptions,
+): Promise<Result<FileUploadPlan, FileError>> {
+  if (!requestMatches(fileWithUpload.file, options)) return err({ kind: "REQUEST_CONFLICT" });
+  return prepareFileUpload(fileWithUpload, options.signal);
 }
 
 export async function completeFileUpload(options: {
@@ -345,139 +331,120 @@ export async function completeFileUpload(options: {
   return reconcileCompletedFile(fileWithUpload, options.signal);
 }
 
-export async function openFile(options: {
-  organizationId: string;
-  fileId: string;
-  signal: AbortSignal;
-}): Promise<Result<{ file: ReadyFile; body: ReadableStream<Uint8Array> }, FileError>> {
-  const fileResult = await tryAsync(() => findFileById(options.organizationId, options.fileId));
-  if (!fileResult.ok) {
-    return databaseFailure(fileResult.error);
-  }
-  if (!fileResult.value) {
-    return err({ kind: "FILE_NOT_FOUND" });
-  }
-
-  const readyFile = toReadyFile(fileResult.value.file);
-  if (!readyFile) {
-    return err({ kind: "FILE_NOT_READY" });
-  }
-
-  const objectResult = await minio.openObject({
-    key: fileResult.value.file.storageKey,
-    signal: options.signal,
-  });
-  if (!objectResult.ok) {
-    return storageFailure(objectResult.error);
-  }
-
-  return ok({ file: readyFile, body: objectResult.value.body });
-}
-
 async function prepareFileUpload(
   fileWithUpload: FileWithUpload,
   signal: AbortSignal,
 ): Promise<Result<FileUploadPlan, FileError>> {
   const readyFile = toReadyFile(fileWithUpload.file);
-  if (readyFile) {
-    return ok({ kind: "ready", file: readyFile });
-  }
-  if (!fileWithUpload.upload) {
-    return err({ kind: "INVALID_UPLOAD_STATE" });
-  }
+  if (readyFile) return ok({ kind: "ready", file: readyFile });
+  const upload = fileWithUpload.upload;
+  if (!upload) return err({ kind: "INVALID_UPLOAD_STATE" });
 
   const uploadedPartsResult = await minio.listUploadedParts({
     key: fileWithUpload.file.storageKey,
-    uploadId: fileWithUpload.upload.bucketUploadId,
+    uploadId: upload.bucketUploadId,
     signal,
   });
   if (!uploadedPartsResult.ok) {
     if (uploadedPartsResult.error.kind === "UPLOAD_NOT_FOUND") {
-      const reconciledResult = await reconcileCompletedFile(fileWithUpload, signal);
-      if (!reconciledResult.ok) {
-        if (reconciledResult.error.kind === "UPLOAD_NOT_FOUND") {
-          return restartFileUpload(fileWithUpload, signal);
-        }
-
-        return reconciledResult;
-      }
-
-      return ok({ kind: "ready", file: reconciledResult.value });
+      return recoverMissingMultipartUpload(fileWithUpload, signal);
     }
-
     return storageFailure(uploadedPartsResult.error);
   }
 
-  const partCount = getPartCount(
-    fileWithUpload.file.expectedSizeBytes,
-    fileWithUpload.upload.partSizeBytes,
-  );
+  const partCount = getPartCount(fileWithUpload.file.expectedSizeBytes, upload.partSizeBytes);
   const uploadedParts = [...uploadedPartsResult.value].sort(
     (left, right) => left.partNumber - right.partNumber,
   );
-  const uploadedPartNumbers = new Set<number>();
+  const uploadedPartNumbers = validateUploadedParts(
+    fileWithUpload.file,
+    upload,
+    uploadedParts,
+    partCount,
+  );
+  if (!uploadedPartNumbers) return err({ kind: "INVALID_UPLOAD_PARTS" });
 
-  for (const part of uploadedParts) {
-    if (
-      part.partNumber < 1 ||
-      part.partNumber > partCount ||
-      part.sizeBytes !==
-        getPartSize(
-          part.partNumber,
-          fileWithUpload.file.expectedSizeBytes,
-          fileWithUpload.upload.partSizeBytes,
-        ) ||
-      uploadedPartNumbers.has(part.partNumber)
-    ) {
-      return err({ kind: "INVALID_UPLOAD_PARTS" });
-    }
-
-    uploadedPartNumbers.add(part.partNumber);
-  }
-
-  const parts: Array<UploadPartTarget> = [];
-  for (let partNumber = 1; partNumber <= partCount; partNumber += 1) {
-    if (uploadedPartNumbers.has(partNumber)) {
-      continue;
-    }
-
-    const signedPartResult = await minio.signUploadPart({
-      key: fileWithUpload.file.storageKey,
-      uploadId: fileWithUpload.upload.bucketUploadId,
-      partNumber,
-    });
-    if (!signedPartResult.ok) {
-      return storageFailure(signedPartResult.error);
-    }
-
-    parts.push({
-      partNumber,
-      offsetBytes: (partNumber - 1) * fileWithUpload.upload.partSizeBytes,
-      sizeBytes: getPartSize(
-        partNumber,
-        fileWithUpload.file.expectedSizeBytes,
-        fileWithUpload.upload.partSizeBytes,
-      ),
-      ...signedPartResult.value,
-    });
-  }
-
+  const parts = await signMissingUploadParts(
+    fileWithUpload.file,
+    upload,
+    uploadedPartNumbers,
+    partCount,
+  );
   return ok({
     kind: "upload",
     fileId: fileWithUpload.file.id,
-    partSizeBytes: fileWithUpload.upload.partSizeBytes,
+    partSizeBytes: upload.partSizeBytes,
     uploadedParts,
     parts,
   });
+}
+
+async function recoverMissingMultipartUpload(
+  fileWithUpload: FileWithUpload,
+  signal: AbortSignal,
+): Promise<Result<FileUploadPlan, FileError>> {
+  const reconciledResult = await reconcileCompletedFile(fileWithUpload, signal);
+  if (reconciledResult.ok) return ok({ kind: "ready", file: reconciledResult.value });
+  if (reconciledResult.error.kind === "UPLOAD_NOT_FOUND") {
+    return restartFileUpload(fileWithUpload, signal);
+  }
+  return reconciledResult;
+}
+
+function validateUploadedParts(
+  file: fileSchema.File,
+  upload: fileSchema.FileUpload,
+  uploadedParts: ReadonlyArray<UploadedPart>,
+  partCount: number,
+) {
+  const partNumbers = new Set<number>();
+  for (const part of uploadedParts) {
+    const expectedSize = getPartSize(part.partNumber, file.expectedSizeBytes, upload.partSizeBytes);
+    if (
+      part.partNumber < 1 ||
+      part.partNumber > partCount ||
+      part.sizeBytes !== expectedSize ||
+      partNumbers.has(part.partNumber)
+    ) {
+      return undefined;
+    }
+    partNumbers.add(part.partNumber);
+  }
+  return partNumbers;
+}
+
+async function signMissingUploadParts(
+  file: fileSchema.File,
+  upload: fileSchema.FileUpload,
+  uploadedPartNumbers: ReadonlySet<number>,
+  partCount: number,
+) {
+  const parts: Array<UploadPartTarget> = [];
+  for (let partNumber = 1; partNumber <= partCount; partNumber += 1) {
+    if (uploadedPartNumbers.has(partNumber)) continue;
+
+    const signedPartResult = await minio.signUploadPart({
+      key: file.storageKey,
+      uploadId: upload.bucketUploadId,
+      partNumber,
+    });
+    if (!signedPartResult.ok) return storageFailure(signedPartResult.error);
+
+    parts.push({
+      partNumber,
+      offsetBytes: (partNumber - 1) * upload.partSizeBytes,
+      sizeBytes: getPartSize(partNumber, file.expectedSizeBytes, upload.partSizeBytes),
+      ...signedPartResult.value,
+    });
+  }
+  return parts;
 }
 
 async function restartFileUpload(
   fileWithUpload: FileWithUpload,
   signal: AbortSignal,
 ): Promise<Result<FileUploadPlan, FileError>> {
-  if (!fileWithUpload.upload) {
-    return err({ kind: "INVALID_UPLOAD_STATE" });
-  }
+  if (!fileWithUpload.upload) return err({ kind: "INVALID_UPLOAD_STATE" });
 
   const oldUploadId = fileWithUpload.upload.bucketUploadId;
   const oldStorageKey = fileWithUpload.file.storageKey;
@@ -490,202 +457,200 @@ async function restartFileUpload(
     mediaType: fileWithUpload.file.mediaType,
     signal,
   });
-  if (!startResult.ok) {
-    return storageFailure(startResult.error);
-  }
+  if (!startResult.ok) return storageFailure(startResult.error);
 
   const newUploadId = startResult.value;
   const updateResult = await tryAsync(() =>
-    db.transaction(async (tx) => {
-      const [file] = await tx
-        .update(fileSchema.files)
-        .set({ storageKey: newStorageKey })
-        .where(
-          and(
-            eq(fileSchema.files.id, fileWithUpload.file.id),
-            eq(fileSchema.files.organizationId, fileWithUpload.file.organizationId),
-            eq(fileSchema.files.state, "pending"),
-            eq(fileSchema.files.storageKey, oldStorageKey),
-          ),
-        )
-        .returning();
-      if (!file) {
-        return undefined;
-      }
-
-      const [upload] = await tx
-        .update(fileSchema.fileUploads)
-        .set({
-          bucketUploadId: newUploadId,
-          expiresAt: new Date(Date.now() + UPLOAD_LIFETIME_MS),
-          completedAt: null,
-        })
-        .where(
-          and(
-            eq(fileSchema.fileUploads.fileId, fileWithUpload.file.id),
-            eq(fileSchema.fileUploads.bucketUploadId, oldUploadId),
-          ),
-        )
-        .returning();
-      if (!upload) {
-        throw new Error("File upload changed during restart");
-      }
-
-      return { file, upload } satisfies FileWithUpload;
-    }),
+    updateRestartedUpload(fileWithUpload, oldStorageKey, oldUploadId, newStorageKey, newUploadId),
   );
-
   if (!updateResult.ok) {
-    const recoveryResult = await tryAsync(() =>
-      findFileById(fileWithUpload.file.organizationId, fileWithUpload.file.id),
+    return recoverFailedUploadRestart(
+      fileWithUpload,
+      signal,
+      oldStorageKey,
+      oldUploadId,
+      newStorageKey,
+      newUploadId,
+      updateResult.error,
     );
-    if (!recoveryResult.ok) {
-      return databaseFailure(updateResult.error);
-    }
-    if (!recoveryResult.value) {
-      await minio.abortMultipartUpload({
-        key: newStorageKey,
-        uploadId: newUploadId,
-      });
-      return err({ kind: "FILE_NOT_FOUND" });
-    }
-
-    if (
-      recoveryResult.value.file.storageKey === newStorageKey &&
-      recoveryResult.value.upload?.bucketUploadId === newUploadId
-    ) {
-      await minio.abortMultipartUpload({
-        key: oldStorageKey,
-        uploadId: oldUploadId,
-      });
-    } else {
-      await minio.abortMultipartUpload({
-        key: newStorageKey,
-        uploadId: newUploadId,
-      });
-    }
-
-    return prepareFileUpload(recoveryResult.value, signal);
   }
-
   if (!updateResult.value) {
-    await minio.abortMultipartUpload({
-      key: newStorageKey,
-      uploadId: newUploadId,
-    });
-
-    const currentResult = await tryAsync(() =>
-      findFileById(fileWithUpload.file.organizationId, fileWithUpload.file.id),
-    );
-    if (!currentResult.ok) {
-      return databaseFailure(currentResult.error);
-    }
-    if (!currentResult.value) {
-      return err({ kind: "FILE_NOT_FOUND" });
-    }
-
-    return prepareFileUpload(currentResult.value, signal);
+    return recoverConflictingUploadRestart(fileWithUpload, signal, newStorageKey, newUploadId);
   }
 
-  await minio.abortMultipartUpload({
-    key: oldStorageKey,
-    uploadId: oldUploadId,
-  });
-
+  await minio.abortMultipartUpload({ key: oldStorageKey, uploadId: oldUploadId });
   return prepareFileUpload(updateResult.value, signal);
+}
+
+async function updateRestartedUpload(
+  fileWithUpload: FileWithUpload,
+  oldStorageKey: string,
+  oldUploadId: string,
+  newStorageKey: string,
+  newUploadId: string,
+) {
+  return db.transaction(async (tx) => {
+    const [file] = await tx
+      .update(fileSchema.files)
+      .set({ storageKey: newStorageKey })
+      .where(
+        and(
+          eq(fileSchema.files.id, fileWithUpload.file.id),
+          eq(fileSchema.files.organizationId, fileWithUpload.file.organizationId),
+          eq(fileSchema.files.state, "pending"),
+          eq(fileSchema.files.storageKey, oldStorageKey),
+        ),
+      )
+      .returning();
+    if (!file) return undefined;
+
+    const [upload] = await tx
+      .update(fileSchema.fileUploads)
+      .set({
+        bucketUploadId: newUploadId,
+        expiresAt: new Date(Date.now() + UPLOAD_LIFETIME_MS),
+        completedAt: null,
+      })
+      .where(
+        and(
+          eq(fileSchema.fileUploads.fileId, fileWithUpload.file.id),
+          eq(fileSchema.fileUploads.bucketUploadId, oldUploadId),
+        ),
+      )
+      .returning();
+    if (!upload) throw new Error("File upload changed during restart");
+    return { file, upload } satisfies FileWithUpload;
+  });
+}
+
+async function recoverFailedUploadRestart(
+  fileWithUpload: FileWithUpload,
+  signal: AbortSignal,
+  oldStorageKey: string,
+  oldUploadId: string,
+  newStorageKey: string,
+  newUploadId: string,
+  updateError: unknown,
+): Promise<Result<FileUploadPlan, FileError>> {
+  const recoveryResult = await tryAsync(() =>
+    findFileById(fileWithUpload.file.organizationId, fileWithUpload.file.id),
+  );
+  if (!recoveryResult.ok) return databaseFailure(updateError);
+
+  const recovered = recoveryResult.value;
+  if (!recovered) {
+    await minio.abortMultipartUpload({ key: newStorageKey, uploadId: newUploadId });
+    return err({ kind: "FILE_NOT_FOUND" });
+  }
+
+  const restartWon =
+    recovered.file.storageKey === newStorageKey && recovered.upload?.bucketUploadId === newUploadId;
+  await minio.abortMultipartUpload(
+    restartWon
+      ? { key: oldStorageKey, uploadId: oldUploadId }
+      : { key: newStorageKey, uploadId: newUploadId },
+  );
+  return prepareFileUpload(recovered, signal);
+}
+
+async function recoverConflictingUploadRestart(
+  fileWithUpload: FileWithUpload,
+  signal: AbortSignal,
+  newStorageKey: string,
+  newUploadId: string,
+): Promise<Result<FileUploadPlan, FileError>> {
+  await minio.abortMultipartUpload({ key: newStorageKey, uploadId: newUploadId });
+  const current = await loadFileById(fileWithUpload.file.organizationId, fileWithUpload.file.id);
+  if (!current) return err({ kind: "FILE_NOT_FOUND" });
+  return prepareFileUpload(current, signal);
 }
 
 async function reconcileCompletedFile(
   fileWithUpload: FileWithUpload,
   signal: AbortSignal,
 ): Promise<Result<ReadyFile, FileError>> {
-  const statResult = await minio.statObject({
-    key: fileWithUpload.file.storageKey,
-    signal,
-  });
-  if (!statResult.ok) {
-    if (statResult.error.kind === "OBJECT_NOT_FOUND") {
-      return err({ kind: "UPLOAD_NOT_FOUND" });
-    }
-
-    return storageFailure(statResult.error);
-  }
-  if (statResult.value.sizeBytes !== fileWithUpload.file.expectedSizeBytes) {
-    return err({
-      kind: "SIZE_MISMATCH",
-      expectedSizeBytes: fileWithUpload.file.expectedSizeBytes,
-      actualSizeBytes: statResult.value.sizeBytes,
-    });
-  }
+  const sizeResult = await completedObjectSize(fileWithUpload.file, signal);
+  if (!sizeResult.ok) return sizeResult;
 
   const readyAt = new Date();
   const updateResult = await tryAsync(() =>
-    db.transaction(async (tx) => {
-      const [file] = await tx
-        .update(fileSchema.files)
-        .set({
-          state: "ready",
-          sizeBytes: statResult.value.sizeBytes,
-          readyAt,
-        })
-        .where(
-          and(
-            eq(fileSchema.files.id, fileWithUpload.file.id),
-            eq(fileSchema.files.organizationId, fileWithUpload.file.organizationId),
-            eq(fileSchema.files.state, "pending"),
-            eq(fileSchema.files.storageKey, fileWithUpload.file.storageKey),
-          ),
-        )
-        .returning();
-
-      if (file) {
-        await tx
-          .update(fileSchema.fileUploads)
-          .set({ completedAt: readyAt })
-          .where(eq(fileSchema.fileUploads.fileId, file.id));
-      }
-
-      return file;
-    }),
+    markFileReady(fileWithUpload.file, sizeResult.value, readyAt),
   );
   if (!updateResult.ok) {
-    const recoveryResult = await tryAsync(() =>
-      findFileById(fileWithUpload.file.organizationId, fileWithUpload.file.id),
-    );
-    if (recoveryResult.ok) {
-      const readyFile = recoveryResult.value && toReadyFile(recoveryResult.value.file);
-      if (readyFile) {
-        return ok(readyFile);
-      }
+    return recoverFailedReadyUpdate(fileWithUpload.file, updateResult.error);
+  }
+
+  const readyFile = updateResult.value && toReadyFile(updateResult.value);
+  if (readyFile) return ok(readyFile);
+  return reconcileConcurrentReadyUpdate(fileWithUpload.file);
+}
+
+async function completedObjectSize(
+  file: fileSchema.File,
+  signal: AbortSignal,
+): Promise<Result<number, FileError>> {
+  const statResult = await minio.statObject({ key: file.storageKey, signal });
+  if (!statResult.ok) {
+    if (statResult.error.kind === "OBJECT_NOT_FOUND") return err({ kind: "UPLOAD_NOT_FOUND" });
+    return storageFailure(statResult.error);
+  }
+  if (statResult.value.sizeBytes !== file.expectedSizeBytes) {
+    return err({
+      kind: "SIZE_MISMATCH",
+      expectedSizeBytes: file.expectedSizeBytes,
+      actualSizeBytes: statResult.value.sizeBytes,
+    });
+  }
+  return ok(statResult.value.sizeBytes);
+}
+
+async function markFileReady(file: fileSchema.File, sizeBytes: number, readyAt: Date) {
+  return db.transaction(async (tx) => {
+    const [updatedFile] = await tx
+      .update(fileSchema.files)
+      .set({ state: "ready", sizeBytes, readyAt })
+      .where(
+        and(
+          eq(fileSchema.files.id, file.id),
+          eq(fileSchema.files.organizationId, file.organizationId),
+          eq(fileSchema.files.state, "pending"),
+          eq(fileSchema.files.storageKey, file.storageKey),
+        ),
+      )
+      .returning();
+
+    if (updatedFile) {
+      await tx
+        .update(fileSchema.fileUploads)
+        .set({ completedAt: readyAt })
+        .where(eq(fileSchema.fileUploads.fileId, updatedFile.id));
     }
+    return updatedFile;
+  });
+}
 
-    return databaseFailure(updateResult.error);
+async function recoverFailedReadyUpdate(
+  file: fileSchema.File,
+  updateError: unknown,
+): Promise<Result<ReadyFile, FileError>> {
+  const recoveryResult = await tryAsync(() => findFileById(file.organizationId, file.id));
+  if (recoveryResult.ok) {
+    const readyFile = recoveryResult.value && toReadyFile(recoveryResult.value.file);
+    if (readyFile) return ok(readyFile);
   }
+  return databaseFailure(updateError);
+}
 
-  if (updateResult.value) {
-    const readyFile = toReadyFile(updateResult.value);
-    if (readyFile) {
-      return ok(readyFile);
-    }
-  }
+async function reconcileConcurrentReadyUpdate(
+  file: fileSchema.File,
+): Promise<Result<ReadyFile, FileError>> {
+  const current = await loadFileById(file.organizationId, file.id);
+  if (!current) return err({ kind: "FILE_NOT_FOUND" });
 
-  const currentResult = await tryAsync(() =>
-    findFileById(fileWithUpload.file.organizationId, fileWithUpload.file.id),
-  );
-  if (!currentResult.ok) {
-    return databaseFailure(currentResult.error);
-  }
-  if (!currentResult.value) {
-    return err({ kind: "FILE_NOT_FOUND" });
-  }
-
-  const currentReadyFile = toReadyFile(currentResult.value.file);
-  if (currentResult.value.file.storageKey !== fileWithUpload.file.storageKey) {
-    await minio.deleteObject({ key: fileWithUpload.file.storageKey });
-  }
-  if (!currentReadyFile) {
-    return err({ kind: "INVALID_UPLOAD_STATE" });
-  }
+  const currentReadyFile = toReadyFile(current.file);
+  if (current.file.storageKey !== file.storageKey)
+    await minio.deleteObject({ key: file.storageKey });
+  if (!currentReadyFile) return err({ kind: "INVALID_UPLOAD_STATE" });
 
   return ok(currentReadyFile);
 }
@@ -706,6 +671,12 @@ async function findFileByRequestId(organizationId: string, requestId: string) {
   return result;
 }
 
+async function loadFileByRequestId(organizationId: string, requestId: string) {
+  const result = await tryAsync(() => findFileByRequestId(organizationId, requestId));
+  if (!result.ok) return databaseFailure(result.error);
+  return result.value;
+}
+
 async function findFileById(organizationId: string, fileId: string) {
   const [result] = await db
     .select({ file: fileSchema.files, upload: fileSchema.fileUploads })
@@ -717,6 +688,12 @@ async function findFileById(organizationId: string, fileId: string) {
     .limit(1);
 
   return result;
+}
+
+async function loadFileById(organizationId: string, fileId: string) {
+  const result = await tryAsync(() => findFileById(organizationId, fileId));
+  if (!result.ok) return databaseFailure(result.error);
+  return result.value;
 }
 
 function validateFile(options: { name: string; mediaType: string; sizeBytes: number }) {

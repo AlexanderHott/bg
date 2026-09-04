@@ -34,18 +34,6 @@ function TableBody(props: JSX.IntrinsicElements["tbody"]) {
   );
 }
 
-function TableFooter(props: JSX.IntrinsicElements["tfoot"]) {
-  const [local, others] = splitProps(props, ["class"]);
-
-  return (
-    <tfoot
-      data-slot="table-footer"
-      class={cn("border-t bg-muted/50 font-medium [&>tr]:last:border-b-0", local.class)}
-      {...others}
-    />
-  );
-}
-
 function TableRow(props: JSX.IntrinsicElements["tr"]) {
   const [local, others] = splitProps(props, ["class"]);
 
@@ -88,16 +76,4 @@ function TableCell(props: JSX.IntrinsicElements["td"]) {
   );
 }
 
-function TableCaption(props: JSX.IntrinsicElements["caption"]) {
-  const [local, others] = splitProps(props, ["class"]);
-
-  return (
-    <caption
-      data-slot="table-caption"
-      class={cn("mt-4 text-sm text-muted-foreground", local.class)}
-      {...others}
-    />
-  );
-}
-
-export { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell, TableCaption };
+export { Table, TableHeader, TableBody, TableHead, TableRow, TableCell };

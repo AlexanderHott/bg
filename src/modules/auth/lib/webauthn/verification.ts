@@ -8,7 +8,7 @@ import { decodeBase64url, encodeBase64url } from "../encoding";
 export type SupportedCoseAlgorithm = -8 | -7 | -257;
 
 export const MAX_CREDENTIAL_ID_LENGTH = 1023;
-export const MAX_USER_HANDLE_LENGTH = 64;
+const MAX_USER_HANDLE_LENGTH = 64;
 
 export interface WebAuthnPolicy {
   rpId: string;
@@ -131,7 +131,41 @@ export interface ParsedAuthenticatorData {
   trailingBytes: Bytes;
 }
 
-export function parseAuthenticatorData(
+export type AuthenticatorDataVerificationError = {
+  kind:
+    | "INVALID_AUTHENTICATOR_DATA"
+    | "INVALID_BACKUP_FLAGS"
+    | "RP_ID_MISMATCH"
+    | "USER_PRESENCE_REQUIRED"
+    | "USER_VERIFICATION_REQUIRED";
+  cause: unknown;
+};
+
+export async function verifyAuthenticatorData(options: {
+  encodedData: string;
+  policy: Pick<WebAuthnPolicy, "rpId" | "requireUserVerification">;
+}): Promise<Result<ParsedAuthenticatorData, AuthenticatorDataVerificationError>> {
+  const bytesResult = parseBase64url(options.encodedData);
+  if (!bytesResult.ok) {
+    return err({ kind: "INVALID_AUTHENTICATOR_DATA", cause: bytesResult.error });
+  }
+
+  const dataResult = parseAuthenticatorData(bytesResult.value);
+  if (!dataResult.ok) return err({ kind: dataResult.error, cause: undefined });
+
+  const data = dataResult.value;
+  if (!(await rpIdHashMatches(options.policy.rpId, data.rpIdHash))) {
+    return err({ kind: "RP_ID_MISMATCH", cause: undefined });
+  }
+  if (!data.userPresent) return err({ kind: "USER_PRESENCE_REQUIRED", cause: undefined });
+  if (options.policy.requireUserVerification && !data.userVerified) {
+    return err({ kind: "USER_VERIFICATION_REQUIRED", cause: undefined });
+  }
+
+  return ok(data);
+}
+
+function parseAuthenticatorData(
   bytes: Bytes,
 ): Result<ParsedAuthenticatorData, "INVALID_AUTHENTICATOR_DATA" | "INVALID_BACKUP_FLAGS"> {
   if (bytes.byteLength < AUTHENTICATOR_DATA_PREFIX_LENGTH) {
@@ -164,7 +198,7 @@ export function parseAuthenticatorData(
   });
 }
 
-export async function rpIdHashMatches(rpId: string, actualHash: Bytes) {
+async function rpIdHashMatches(rpId: string, actualHash: Bytes) {
   const expectedHash = await sha256Hash(new TextEncoder().encode(rpId));
   return constantTimeCompare(expectedHash, actualHash);
 }

@@ -4,13 +4,11 @@ import { useServerFn } from "@tanstack/solid-start";
 import { createSignal, Show } from "solid-js";
 import * as v from "valibot";
 
-import { Button } from "@/components/ui/Button";
 import {
-  TextField,
-  TextFieldErrorMessage,
-  TextFieldInput,
-  TextFieldLabel,
-} from "@/components/ui/TextField";
+  FormSubmitButton,
+  FormTextField,
+  selectSubmissionState,
+} from "@/components/forms/FormControls";
 
 import { signUpFn } from "../serverFunctions";
 import { PasswordValidator, UsernameValidator } from "../validators";
@@ -66,13 +64,11 @@ export function SignupForm() {
         <form.Field
           name="username"
           validators={{
-            onChangeAsync: async ({ value }) => {
+            onChangeAsync: async () => {
               const validationVersion = usernameValidationVersion;
 
               try {
                 await new Promise((resolve) => setTimeout(resolve, 500));
-
-                // return value === "asdfasdf" ? "Username taken" : undefined;
                 return undefined;
               } finally {
                 if (validationVersion === usernameValidationVersion) {
@@ -83,105 +79,39 @@ export function SignupForm() {
             onChangeAsyncDebounceMs: 300,
           }}
           children={(field) => (
-            <TextField
-              validationState={
-                field().state.meta.isTouched && field().state.meta.errors.length > 0
-                  ? "invalid"
-                  : "valid"
-              }
+            <FormTextField
+              label="username"
+              type="text"
+              field={field}
+              onInput={(value) => {
+                usernameValidationVersion += 1;
+                setIsUsernameValidationPending(v.safeParse(UsernameValidator, value).success);
+                field().handleChange(value);
+              }}
             >
-              <TextFieldLabel>username</TextFieldLabel>
-              <TextFieldInput
-                type="text"
-                name={field().name}
-                value={field().state.value}
-                onBlur={field().handleBlur}
-                onInput={(e) => {
-                  const value = e.currentTarget.value;
-                  usernameValidationVersion += 1;
-                  setIsUsernameValidationPending(v.safeParse(UsernameValidator, value).success);
-                  field().handleChange(value);
-                }}
-              />
               {/* @tanstack/form-core@1.33.5 does not restore isValidating after the first debounced run. */}
               <Show when={isUsernameValidationPending()}>
                 <div role="status">Checking username...</div>
               </Show>
-              <TextFieldErrorMessage>
-                {field()
-                  .state.meta.errors.map((e) => (typeof e === "string" ? e : e?.message))
-                  .join(", ")}
-              </TextFieldErrorMessage>
-            </TextField>
+            </FormTextField>
           )}
         />
 
         <form.Field
           name="password"
-          children={(field) => (
-            <TextField
-              validationState={
-                field().state.meta.isTouched && field().state.meta.errors.length > 0
-                  ? "invalid"
-                  : "valid"
-              }
-            >
-              <TextFieldLabel>password</TextFieldLabel>
-              <TextFieldInput
-                type="password"
-                name={field().name}
-                value={field().state.value}
-                onBlur={field().handleBlur}
-                onInput={(e) => field().handleChange(e.currentTarget.value)}
-              />
-              <TextFieldErrorMessage>
-                {field()
-                  .state.meta.errors.map((e) => e?.message)
-                  .join(", ")}
-              </TextFieldErrorMessage>
-            </TextField>
-          )}
+          children={(field) => <FormTextField label="password" type="password" field={field} />}
         />
 
         <form.Field
           name="passwordConfirm"
           children={(field) => (
-            <TextField
-              validationState={
-                field().state.meta.isTouched && field().state.meta.errors.length > 0
-                  ? "invalid"
-                  : "valid"
-              }
-            >
-              <TextFieldLabel>confirm password</TextFieldLabel>
-              <TextFieldInput
-                type="password"
-                name={field().name}
-                value={field().state.value}
-                onBlur={field().handleBlur}
-                onInput={(e) => field().handleChange(e.currentTarget.value)}
-              />
-              <TextFieldErrorMessage>
-                {field()
-                  .state.meta.errors.map((e) => e?.message)
-                  .join(", ")}
-              </TextFieldErrorMessage>
-            </TextField>
+            <FormTextField label="confirm password" type="password" field={field} />
           )}
         />
 
         <form.Subscribe
-          selector={(state) => ({
-            canSubmit: state.canSubmit,
-            isSubmitting: state.isSubmitting,
-          })}
-          children={(state) => {
-            return (
-              <Button type="submit" disabled={!state().canSubmit}>
-                {state().isSubmitting ? "..." : "[ sign up ]"}
-              </Button>
-            );
-          }}
+          selector={selectSubmissionState}
+          children={(state) => <FormSubmitButton label="sign up" {...state()} />}
         />
       </form>
 
