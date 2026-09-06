@@ -18,7 +18,12 @@ function splitOnce(value: string, separator: string) {
 }
 
 export function parseSessionToken(sessionTokenStr: string) {
-  const sessionTokenDecoded = decodeURIComponent(sessionTokenStr);
+  let sessionTokenDecoded: string;
+  try {
+    sessionTokenDecoded = decodeURIComponent(sessionTokenStr);
+  } catch {
+    return undefined;
+  }
   const sessionTokenParts = splitOnce(sessionTokenDecoded, ".");
 
   if (sessionTokenParts.length !== 2) {

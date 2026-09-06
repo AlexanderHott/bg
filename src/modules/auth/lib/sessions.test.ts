@@ -35,6 +35,26 @@ describe("validateSession", () => {
       },
       isValid: false,
     },
+    {
+      name: "malformed presented secret",
+      options: {
+        secret: "not!base64",
+        secretHash: "x_27iTnZ1koPymdnuBhsiD8Txq4Vqfrz8SghTJJThIw=",
+        expiresAt: new Date(1_888_888_888_888),
+        now: new Date(1_777_777_777_777),
+      },
+      isValid: false,
+    },
+    {
+      name: "malformed stored hash",
+      options: {
+        secret: "secret-123",
+        secretHash: "not!base64",
+        expiresAt: new Date(1_888_888_888_888),
+        now: new Date(1_777_777_777_777),
+      },
+      isValid: false,
+    },
   ] satisfies Array<{
     name: string;
     options: ValidateSessionOptions;

@@ -36,5 +36,51 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.organizations.id.through(r.memberships.organizationId),
       to: r.users.id.through(r.memberships.userId),
     }),
+    files: r.many.files(),
+    backgroundRemovals: r.many.backgroundRemovals(),
+    backgroundRemovalAttempts: r.many.backgroundRemovalAttempts(),
+  },
+  files: {
+    organization: r.one.organizations({
+      from: r.files.organizationId,
+      to: r.organizations.id,
+    }),
+    inputForBackgroundRemovals: r.many.backgroundRemovals({
+      from: r.files.id,
+      to: r.backgroundRemovals.inputFileId,
+      alias: "backgroundRemovalInput",
+    }),
+    backgroundRemovalAttempts: r.many.backgroundRemovalAttempts({
+      from: r.files.id,
+      to: r.backgroundRemovalAttempts.outputFileId,
+      alias: "backgroundRemovalOutput",
+    }),
+  },
+  backgroundRemovals: {
+    organization: r.one.organizations({
+      from: r.backgroundRemovals.organizationId,
+      to: r.organizations.id,
+    }),
+    inputFile: r.one.files({
+      from: r.backgroundRemovals.inputFileId,
+      to: r.files.id,
+      alias: "backgroundRemovalInput",
+    }),
+    attempts: r.many.backgroundRemovalAttempts(),
+  },
+  backgroundRemovalAttempts: {
+    organization: r.one.organizations({
+      from: r.backgroundRemovalAttempts.organizationId,
+      to: r.organizations.id,
+    }),
+    backgroundRemoval: r.one.backgroundRemovals({
+      from: r.backgroundRemovalAttempts.backgroundRemovalId,
+      to: r.backgroundRemovals.id,
+    }),
+    outputFile: r.one.files({
+      from: r.backgroundRemovalAttempts.outputFileId,
+      to: r.files.id,
+      alias: "backgroundRemovalOutput",
+    }),
   },
 }));

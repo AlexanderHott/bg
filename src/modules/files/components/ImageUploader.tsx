@@ -6,13 +6,14 @@ import { uploadFile, type UploadFileError, type UploadProgress } from "@/modules
 import type { ReadyFile } from "@/modules/files/files";
 import { isSupportedImageMediaType, SUPPORTED_IMAGE_MEDIA_TYPES } from "@/modules/files/images";
 
-const MAX_IMAGE_SIZE_BYTES = 2_000_000_000;
+const DEFAULT_MAX_IMAGE_SIZE_BYTES = 2_000_000_000;
 const MAX_PREVIEW_SIZE_BYTES = 25_000_000;
 type UploadStatus = "selected" | "uploading" | "finalizing" | "cancelling" | "uploaded";
 type DragState = "accepted" | "rejected";
 
 export function ImageUploader(props: {
   organizationSlug: string;
+  maxSizeBytes?: number;
   onUploaded?: (file: ReadyFile) => void;
 }) {
   const [selectedFile, setSelectedFile] = createSignal<File>();
@@ -69,7 +70,7 @@ export function ImageUploader(props: {
   }
 
   function selectFile(file: File) {
-    const validationError = validateImage(file);
+    const validationError = validateImage(file, props.maxSizeBytes ?? DEFAULT_MAX_IMAGE_SIZE_BYTES);
     if (validationError) {
       clearSelection(validationError);
       return;
@@ -239,7 +240,9 @@ export function ImageUploader(props: {
               <p class="text-muted-foreground mt-2 text-sm">
                 or click to choose one. jpeg, png, webp, or avif.
               </p>
-              <p class="text-muted-foreground mt-4 text-xs">one image, up to 2 GB</p>
+              <p class="text-muted-foreground mt-4 text-xs">
+                one image, up to {formatBytes(props.maxSizeBytes ?? DEFAULT_MAX_IMAGE_SIZE_BYTES)}
+              </p>
             </div>
           }
         >
@@ -379,12 +382,14 @@ function uploadButtonLabel(status: UploadStatus, isPending: boolean, hasMessage:
   return "[ upload image ]";
 }
 
-function validateImage(file: File) {
+function validateImage(file: File, maxSizeBytes: number) {
   if (!isSupportedImageMediaType(file.type)) {
     return "Choose a jpeg, png, webp, or avif image.";
   }
   if (file.size === 0) return "Choose a non-empty image.";
-  if (file.size > MAX_IMAGE_SIZE_BYTES) return "Choose an image smaller than 2 GB.";
+  if (file.size > maxSizeBytes) {
+    return `Choose an image no larger than ${formatBytes(maxSizeBytes)}.`;
+  }
   return undefined;
 }
 

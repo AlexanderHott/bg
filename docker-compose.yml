@@ -3,9 +3,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: web
     depends_on:
       minio-init:
         condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -39,6 +42,59 @@ services:
     networks:
       - app
 
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 10m
+    mem_limit: 8g
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: "postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres:5432/bg"
+      WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:?WEBAUTHN_RP_ID is required}
+      WEBAUTHN_ORIGIN: ${WEBAUTHN_ORIGIN:?WEBAUTHN_ORIGIN is required}
+      S3_INTERNAL_ENDPOINT: http://minio:9000
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:?S3_PUBLIC_ENDPOINT is required}
+      S3_REGION: us-east-1
+      S3_BUCKET: bg-files
+      S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
+      S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      S3_FORCE_PATH_STYLE: "true"
+      BACKGROUND_REMOVAL_MODEL_PATH: /opt/bg/models/birefnet.onnx
+      BACKGROUND_REMOVAL_SCRATCH_PATH: /tmp/bg
+      NODE_OPTIONS: "--import ./instrumentation.mjs"
+      OTEL_ENABLED: "${OTEL_ENABLED:-false}"
+      OTEL_SERVICE_NAME: bg-worker
+      OTEL_RESOURCE_ATTRIBUTES: "deployment.environment.name=${DEPLOYMENT_ENVIRONMENT:-production}"
+      OTEL_NODE_RESOURCE_DETECTORS: env,host,os,process,serviceinstance,container
+      OTEL_NODE_ENABLED_INSTRUMENTATIONS: pg,aws-sdk,runtime-node
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: none
+      OTEL_EXPORTER_OTLP_ENDPOINT: "${OTEL_EXPORTER_OTLP_ENDPOINT:-}"
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_EXPORTER_OTLP_COMPRESSION: gzip
+      OTEL_EXPORTER_OTLP_HEADERS: "Authorization=Bearer%20${OTEL_BEARER_TOKEN:-}"
+      OTEL_EXPORTER_OTLP_TIMEOUT: "5000"
+      OTEL_LOG_LEVEL: info
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('node:fs').accessSync('/tmp/bg/ready')"]
+      interval: 15s
+      timeout: 2s
+      retries: 40
+      start_period: 10s
+    tmpfs:
+      - /tmp/bg:size=1g,mode=1777
+    networks:
+      - app
+
   postgres:
     image: postgres:18-alpine3.24
     restart: unless-stopped
@@ -48,6 +104,11 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
     volumes:
       - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bg"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
     networks:
       - app
 

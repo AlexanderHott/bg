@@ -1,0 +1,79 @@
+{
+  "measuredAt": "2026-09-06T17:55:58.370Z",
+  "node": "v26.3.0",
+  "platform": "linux",
+  "architecture": "x64",
+  "cpu": "AMD Ryzen 7 7840U w/ Radeon  780M Graphics",
+  "modelSha256": "5600024376f572a557870a5eb0afb1e5961636bef4e1e22132025467d0f03333",
+  "loadMs": 2044.3472339999998,
+  "coldStartMs": 9759.262585,
+  "crashes": 0,
+  "runs": [
+    {
+      "name": "o_663090ad.jpg",
+      "category": "portrait",
+      "inputSha256": "3477afdf5e891e19a6c665fef26da44ccdb3cf2a18c5d237f18b3d2a98555dc8",
+      "pass": "first",
+      "width": 1620,
+      "height": 1080,
+      "durationMs": 7714.9153510000015,
+      "retainedRssBytes": 709779456,
+      "peakRssBytes": 7349018624
+    },
+    {
+      "name": "o_46818bea.jpg",
+      "category": "animal",
+      "inputSha256": "ae87edb1659dc22bf29c78f5b7860c8fe3fe6754f9262aba50789d77b2d4543f",
+      "pass": "first",
+      "width": 1620,
+      "height": 1080,
+      "durationMs": 5978.989290000001,
+      "retainedRssBytes": 723140608,
+      "peakRssBytes": 7349018624
+    },
+    {
+      "name": "o_740b4c5d.jpg",
+      "category": "transparent",
+      "inputSha256": "a83b25fc10bebb5514144f048afde891236b948a27a001a6b0bb4b223afe1190",
+      "pass": "first",
+      "width": 1080,
+      "height": 1147,
+      "durationMs": 6312.312623000002,
+      "retainedRssBytes": 727588864,
+      "peakRssBytes": 7349018624
+    },
+    {
+      "name": "o_663090ad.jpg",
+      "category": "portrait",
+      "inputSha256": "3477afdf5e891e19a6c665fef26da44ccdb3cf2a18c5d237f18b3d2a98555dc8",
+      "pass": "repeat",
+      "width": 1620,
+      "height": 1080,
+      "durationMs": 6031.870553000001,
+      "retainedRssBytes": 743718912,
+      "peakRssBytes": 7349018624
+    },
+    {
+      "name": "o_46818bea.jpg",
+      "category": "animal",
+      "inputSha256": "ae87edb1659dc22bf29c78f5b7860c8fe3fe6754f9262aba50789d77b2d4543f",
+      "pass": "repeat",
+      "width": 1620,
+      "height": 1080,
+      "durationMs": 6319.430852000001,
+      "retainedRssBytes": 748855296,
+      "peakRssBytes": 7349018624
+    },
+    {
+      "name": "o_740b4c5d.jpg",
+      "category": "transparent",
+      "inputSha256": "a83b25fc10bebb5514144f048afde891236b948a27a001a6b0bb4b223afe1190",
+      "pass": "repeat",
+      "width": 1080,
+      "height": 1147,
+      "durationMs": 6704.221072,
+      "retainedRssBytes": 748822528,
+      "peakRssBytes": 7349018624
+    }
+  ]
+}

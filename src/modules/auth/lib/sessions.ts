@@ -30,19 +30,23 @@ export async function validateSession(options: ValidateSessionOptions) {
     return false;
   }
 
-  const sessionSecretActualBuffer = Uint8Array.fromBase64(options.secret, {
-    alphabet: "base64url",
-  });
-  const sessionSecretActualHashBuffer = await sha256Hash(sessionSecretActualBuffer);
+  const sessionSecretActualBuffer = decodeBase64Url(options.secret);
+  const sessionSecretExpectedHashBuffer = decodeBase64Url(options.secretHash);
+  if (!sessionSecretActualBuffer || !sessionSecretExpectedHashBuffer) return false;
 
-  const sessionSecretExpectedHashStr = options.secretHash;
-  const sessionSecretExpectedHashBuffer = Uint8Array.fromBase64(sessionSecretExpectedHashStr, {
-    alphabet: "base64url",
-  });
+  const sessionSecretActualHashBuffer = await sha256Hash(sessionSecretActualBuffer);
 
   if (!constantTimeCompare(sessionSecretActualHashBuffer, sessionSecretExpectedHashBuffer)) {
     return false;
   }
 
   return true;
+}
+
+function decodeBase64Url(value: string) {
+  try {
+    return new Uint8Array(Uint8Array.fromBase64(value, { alphabet: "base64url" }));
+  } catch {
+    return undefined;
+  }
 }

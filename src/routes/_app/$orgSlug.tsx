@@ -48,7 +48,7 @@ function RouteComponent() {
             to="/$orgSlug/remove-background"
             params={{ orgSlug: context().organization.slug }}
           >
-            upload demo
+            remove background
           </Link>
           <Link class="text-muted-foreground hover:text-foreground ml-auto" to="/">
             switch organization
