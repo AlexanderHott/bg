@@ -24,6 +24,7 @@ export default defineConfig(({ mode }) => ({
       ? []
       : [
           nitro({
+            serverDir: "server",
             rollupConfig: {
               external: ["pg", "@aws-sdk/client-s3", "@aws-sdk/s3-request-presigner"],
             },

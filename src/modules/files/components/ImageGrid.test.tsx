@@ -17,6 +17,7 @@ describe("ImageGrid", () => {
           {
             id: "01994fd4-c3ef-7f5a-a0cb-768f7f6d3be6",
             organizationId: "01994fd4-d61a-7d1d-b36d-6832661f94ea",
+            requestId: "01994fd5-7849-7de8-8c44-045dd8e74ac9",
             name: "portrait.png",
             mediaType: "image/png",
             sizeBytes: 6,

@@ -1,3 +1,7 @@
+import { createReadStream, createWriteStream } from "node:fs";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
+
 import {
   AbortMultipartUploadCommand,
   CompleteMultipartUploadCommand,
@@ -9,6 +13,7 @@ import {
   NoSuchKey,
   NoSuchUpload,
   NotFound,
+  PutObjectCommand,
   S3Client,
   UploadPartCommand,
   type S3ClientConfig,
@@ -145,6 +150,71 @@ export async function signOpenObject(options: {
   }
 
   return ok(urlResult.value);
+}
+
+export type DownloadObjectError =
+  | { kind: "OBJECT_NOT_FOUND" }
+  | { kind: "DOWNLOAD_OBJECT_FAILED"; cause: unknown };
+
+export async function downloadObjectToFile(options: {
+  key: string;
+  path: string;
+  signal?: AbortSignal;
+}): Promise<Result<undefined, DownloadObjectError>> {
+  const responseResult = await tryAsync(() =>
+    internalClient.send(new GetObjectCommand({ Bucket: envServer.S3_BUCKET, Key: options.key }), {
+      abortSignal: options.signal,
+    }),
+  );
+  if (!responseResult.ok) {
+    if (responseResult.error instanceof NotFound || responseResult.error instanceof NoSuchKey) {
+      return err({ kind: "OBJECT_NOT_FOUND" });
+    }
+    return err({ kind: "DOWNLOAD_OBJECT_FAILED", cause: responseResult.error });
+  }
+
+  const body = responseResult.value.Body;
+  if (!(body instanceof Readable)) {
+    return err({
+      kind: "DOWNLOAD_OBJECT_FAILED",
+      cause: new Error("Object response had no body"),
+    });
+  }
+
+  const downloadResult = await tryAsync(() =>
+    pipeline(body, createWriteStream(options.path), { signal: options.signal }),
+  );
+  if (!downloadResult.ok) {
+    return err({ kind: "DOWNLOAD_OBJECT_FAILED", cause: downloadResult.error });
+  }
+  return ok(undefined);
+}
+
+export type PutObjectError = { kind: "PUT_OBJECT_FAILED"; cause: unknown };
+
+export async function putObjectFromFile(options: {
+  key: string;
+  path: string;
+  sizeBytes: number;
+  mediaType: string;
+  signal?: AbortSignal;
+}): Promise<Result<undefined, PutObjectError>> {
+  const responseResult = await tryAsync(() =>
+    internalClient.send(
+      new PutObjectCommand({
+        Bucket: envServer.S3_BUCKET,
+        Key: options.key,
+        Body: createReadStream(options.path),
+        ContentLength: options.sizeBytes,
+        ContentType: options.mediaType,
+      }),
+      { abortSignal: options.signal },
+    ),
+  );
+  if (!responseResult.ok) {
+    return err({ kind: "PUT_OBJECT_FAILED", cause: responseResult.error });
+  }
+  return ok(undefined);
 }
 
 export type AbortMultipartUploadError = {

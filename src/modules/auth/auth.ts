@@ -129,8 +129,6 @@ export async function getSession(options: GetSessionOptions) {
     now: new Date(),
   });
   if (!sessionIsValid) {
-    options.signal?.throwIfAborted();
-    await db.delete(authSchema.sessions).where(eq(authSchema.sessions.id, options.sessionToken.id));
     return undefined;
   }
 

@@ -36,6 +36,7 @@ export const files = pgTable(
   },
   (table) => [
     unique("unique_files_organization_id_request_id").on(table.organizationId, table.requestId),
+    unique("unique_files_organization_id_id").on(table.organizationId, table.id),
     check("files_expected_size_positive", sql`${table.expectedSizeBytes} > 0`),
     check(
       "files_state_metadata_consistent",

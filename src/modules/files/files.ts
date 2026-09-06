@@ -1,6 +1,6 @@
 import { randomUUIDv7 } from "node:crypto";
 
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { err, ok, tryAsync, type Result } from "@/lib/result";
@@ -22,6 +22,7 @@ type FileWithUpload = {
 export interface ReadyFile {
   id: string;
   organizationId: string;
+  requestId: string;
   name: string;
   mediaType: string;
   sizeBytes: number;
@@ -32,9 +33,12 @@ export interface ReadyImage extends ReadyFile {
   url: string;
 }
 
-export async function listReadyImages(options: {
+export async function getReadyImages(options: {
   organizationId: string;
+  fileIds: ReadonlyArray<string>;
 }): Promise<Array<ReadyImage>> {
+  if (options.fileIds.length === 0) return [];
+
   const files = await db
     .select()
     .from(fileSchema.files)
@@ -42,33 +46,13 @@ export async function listReadyImages(options: {
       and(
         eq(fileSchema.files.organizationId, options.organizationId),
         eq(fileSchema.files.state, "ready"),
+        inArray(fileSchema.files.id, [...new Set(options.fileIds)]),
         inArray(fileSchema.files.mediaType, SUPPORTED_IMAGE_MEDIA_TYPES),
       ),
-    )
-    .orderBy(desc(fileSchema.files.createdAt), desc(fileSchema.files.id));
+    );
 
   const images = await Promise.all(files.map(toReadyImage));
   return images.filter((image) => image !== undefined);
-}
-
-export async function getReadyImage(options: {
-  organizationId: string;
-  fileId: string;
-}): Promise<Result<ReadyImage, FileError>> {
-  const fileResult = await tryAsync(() => findFileById(options.organizationId, options.fileId));
-  if (!fileResult.ok) {
-    return databaseFailure(fileResult.error);
-  }
-  if (!fileResult.value) {
-    return err({ kind: "FILE_NOT_FOUND" });
-  }
-
-  const image = await toReadyImage(fileResult.value.file);
-  if (!image) {
-    return err({ kind: "FILE_NOT_READY" });
-  }
-
-  return ok(image);
 }
 
 export interface UploadPartTarget {
@@ -732,6 +716,7 @@ function toReadyFile(file: fileSchema.File): ReadyFile | undefined {
   return {
     id: file.id,
     organizationId: file.organizationId,
+    requestId: file.requestId,
     name: file.name,
     mediaType: file.mediaType,
     sizeBytes: file.sizeBytes,
