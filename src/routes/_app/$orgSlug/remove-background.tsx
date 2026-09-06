@@ -4,11 +4,15 @@ import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show }
 
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
-import type {
-  BackgroundRemovalError,
-  BackgroundRemovalSummary,
-} from "@/modules/backgroundRemoval/backgroundRemovals";
-import { MAX_BACKGROUND_REMOVAL_INPUT_SIZE_BYTES } from "@/modules/backgroundRemoval/policy";
+import {
+  backgroundRemovalErrorMessage,
+  createBackgroundRemovalHistory,
+  type BackgroundRemovalEntry,
+} from "@/modules/backgroundRemoval/browser";
+import {
+  isRetryableFailure,
+  MAX_BACKGROUND_REMOVAL_INPUT_SIZE_BYTES,
+} from "@/modules/backgroundRemoval/policy";
 import { startBackgroundRemovalPolling } from "@/modules/backgroundRemoval/polling";
 import {
   createBackgroundRemovalFn,
@@ -18,7 +22,6 @@ import {
   retryBackgroundRemovalFn,
 } from "@/modules/backgroundRemoval/serverFunctions";
 import { ImageUploader } from "@/modules/files/components/ImageUploader";
-import type { ReadyFile } from "@/modules/files/files";
 
 export const Route = createFileRoute("/_app/$orgSlug/remove-background")({
   component: RouteComponent,
@@ -40,23 +43,25 @@ function RouteComponent() {
   const getRemoval = useServerFn(getBackgroundRemovalFn);
   const retryRemoval = useServerFn(retryBackgroundRemovalFn);
   const listRemovals = useServerFn(listBackgroundRemovalsFn);
-  const [localRemovals, setLocalRemovals] = createSignal<Array<BackgroundRemovalSummary>>([]);
   const [nextCursor, setNextCursor] = createSignal(data().page.nextCursor);
   const [isPageVisible, setIsPageVisible] = createSignal(true);
   const [isLoadingMore, setIsLoadingMore] = createSignal(false);
   const [errorMessage, setErrorMessage] = createSignal<string>();
-  const [deletedIds, setDeletedIds] = createSignal<ReadonlySet<string>>(new Set());
+  const history = createBackgroundRemovalHistory({
+    initialItems: () => data().page.items,
+    organizationSlug: () => context().organization.slug,
+    createRemoval,
+    deleteRemoval,
+    onError: setErrorMessage,
+  });
   const inspections = new Map<string, { running: boolean; pending: boolean }>();
 
-  const removals = createMemo(() => {
-    const byRequestId = new Map(data().page.items.map((removal) => [removal.requestId, removal]));
-    for (const removal of localRemovals()) byRequestId.set(removal.requestId, removal);
-    return [...byRequestId.values()]
-      .filter((removal) => !deletedIds().has(removal.id))
-      .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime());
-  });
+  const removals = createMemo(history.items);
   const hasUnsettledRemoval = createMemo(() =>
-    removals().some((removal) => ["queued", "processing", "retrying"].includes(removal.status)),
+    removals().some(
+      (removal) =>
+        !removal.creation && ["queued", "processing", "retrying"].includes(removal.status),
+    ),
   );
 
   onMount(() => {
@@ -71,8 +76,9 @@ function RouteComponent() {
 
     const stop = startBackgroundRemovalPolling({
       onPoll: async () => {
-        const unsettled = removals().filter((removal) =>
-          ["queued", "processing", "retrying"].includes(removal.status),
+        const unsettled = removals().filter(
+          (removal) =>
+            !removal.creation && ["queued", "processing", "retrying"].includes(removal.status),
         );
         await Promise.all(unsettled.map((removal) => inspect(removal.requestId)));
       },
@@ -91,7 +97,7 @@ function RouteComponent() {
       do {
         state.pending = false;
         const current = removals().find((removal) => removal.requestId === requestId);
-        if (!current) return;
+        if (!current || current.creation) return;
         const result = await getRemoval({
           data: {
             organizationSlug: context().organization.slug,
@@ -99,54 +105,35 @@ function RouteComponent() {
           },
         });
         if (!result.ok) {
-          setDeletedIds((currentIds) => new Set(currentIds).add(current.id));
+          history.hide(requestId);
           return;
         }
-        setLocalRemovals((removals) => [
-          result.value,
-          ...removals.filter((removal) => removal.requestId !== requestId),
-        ]);
+        history.merge(result.value);
       } while (state.pending);
     } finally {
       inspections.delete(requestId);
     }
   }
 
-  async function startRemoval(file: ReadyFile) {
+  async function retry(removal: BackgroundRemovalEntry) {
+    if (removal.creation === "failed") return history.start(removal.input);
     setErrorMessage(undefined);
-    const result = await createRemoval({
-      data: {
-        organizationSlug: context().organization.slug,
-        requestId: file.requestId,
-        inputFileId: file.id,
-      },
-    });
-    if (!result.ok) {
-      setErrorMessage(backgroundRemovalErrorMessage(result.error));
-      return;
+    try {
+      const result = await retryRemoval({
+        data: {
+          organizationSlug: context().organization.slug,
+          backgroundRemovalId: removal.id,
+        },
+      });
+      if (!result.ok) {
+        setErrorMessage(backgroundRemovalErrorMessage(result.error));
+        return;
+      }
+      history.merge(result.value);
+    } catch {
+      setErrorMessage("Could not retry this request. Try again.");
+      await inspect(removal.requestId).catch(() => undefined);
     }
-    setLocalRemovals((current) => [
-      result.value,
-      ...current.filter((removal) => removal.requestId !== result.value.requestId),
-    ]);
-  }
-
-  async function retry(removal: BackgroundRemovalSummary) {
-    setErrorMessage(undefined);
-    const result = await retryRemoval({
-      data: {
-        organizationSlug: context().organization.slug,
-        backgroundRemovalId: removal.id,
-      },
-    });
-    if (!result.ok) {
-      setErrorMessage(backgroundRemovalErrorMessage(result.error));
-      return;
-    }
-    setLocalRemovals((current) => [
-      result.value,
-      ...current.filter((item) => item.requestId !== result.value.requestId),
-    ]);
   }
 
   async function loadMore() {
@@ -157,29 +144,13 @@ function RouteComponent() {
       const page = await listRemovals({
         data: { organizationSlug: context().organization.slug, cursor },
       });
-      setLocalRemovals((current) => [...current, ...page.items]);
+      for (const item of page.items) history.merge(item);
       setNextCursor(page.nextCursor);
+    } catch {
+      setErrorMessage("Could not load older requests. Try again.");
     } finally {
       setIsLoadingMore(false);
     }
-  }
-
-  async function remove(removal: BackgroundRemovalSummary) {
-    setDeletedIds((current) => new Set(current).add(removal.id));
-    const result = await deleteRemoval({
-      data: {
-        organizationSlug: context().organization.slug,
-        backgroundRemovalId: removal.id,
-      },
-    });
-    if (result.ok) return;
-
-    setDeletedIds((current) => {
-      const next = new Set(current);
-      next.delete(removal.id);
-      return next;
-    });
-    setErrorMessage(backgroundRemovalErrorMessage(result.error));
   }
 
   return (
@@ -195,7 +166,7 @@ function RouteComponent() {
           <ImageUploader
             organizationSlug={context().organization.slug}
             maxSizeBytes={MAX_BACKGROUND_REMOVAL_INPUT_SIZE_BYTES}
-            onUploaded={(file) => void startRemoval(file)}
+            onUploaded={(file) => void history.start(file)}
           />
         </CardContent>
       </Card>
@@ -221,7 +192,7 @@ function RouteComponent() {
         >
           <For each={removals()}>
             {(removal) => (
-              <BackgroundRemovalCard removal={removal} onRetry={retry} onDelete={remove} />
+              <BackgroundRemovalCard removal={removal} onRetry={retry} onDelete={history.remove} />
             )}
           </For>
           <Show when={nextCursor()}>
@@ -241,11 +212,12 @@ function RouteComponent() {
 }
 
 function BackgroundRemovalCard(props: {
-  removal: BackgroundRemovalSummary;
-  onRetry: (removal: BackgroundRemovalSummary) => Promise<void>;
-  onDelete: (removal: BackgroundRemovalSummary) => Promise<void>;
+  removal: BackgroundRemovalEntry;
+  onRetry: (removal: BackgroundRemovalEntry) => Promise<void>;
+  onDelete: (removal: BackgroundRemovalEntry) => Promise<void>;
 }) {
-  const statusText = () => props.removal.status;
+  const statusText = () =>
+    props.removal.creation === "failed" ? "not confirmed" : props.removal.status;
   return (
     <Card>
       <CardHeader>
@@ -291,7 +263,11 @@ function BackgroundRemovalCard(props: {
               [ retry ]
             </Button>
           </Show>
-          <Button variant="destructive" onClick={() => void props.onDelete(props.removal)}>
+          <Button
+            variant="destructive"
+            disabled={!!props.removal.creation}
+            onClick={() => void props.onDelete(props.removal)}
+          >
             [ delete ]
           </Button>
         </div>
@@ -300,7 +276,7 @@ function BackgroundRemovalCard(props: {
   );
 }
 
-function ImagePanel(props: { label: string; url: string; name: string; transparent?: boolean }) {
+function ImagePanel(props: { label: string; url?: string; name: string; transparent?: boolean }) {
   return (
     <figure class="overflow-hidden rounded-lg border">
       <div
@@ -310,11 +286,16 @@ function ImagePanel(props: { label: string; url: string; name: string; transpare
             props.transparent,
         }}
       >
-        <img
-          class="max-h-96 w-full object-contain"
-          src={props.url}
-          alt={`${props.label} ${props.name}`}
-        />
+        <Show
+          when={props.url}
+          fallback={<p class="text-muted-foreground p-4 text-sm">{props.name}</p>}
+        >
+          <img
+            class="max-h-96 w-full object-contain"
+            src={props.url}
+            alt={`${props.label} ${props.name}`}
+          />
+        </Show>
       </div>
       <figcaption class="text-muted-foreground border-t px-3 py-2 text-xs">
         {props.label}
@@ -323,7 +304,9 @@ function ImagePanel(props: { label: string; url: string; name: string; transpare
   );
 }
 
-function pendingMessage(removal: BackgroundRemovalSummary) {
+function pendingMessage(removal: BackgroundRemovalEntry) {
+  if (removal.creation === "failed")
+    return "Could not confirm processing. Retry to check this request.";
   switch (removal.status) {
     case "queued":
       return "Waiting for the worker.";
@@ -338,11 +321,14 @@ function pendingMessage(removal: BackgroundRemovalSummary) {
   }
 }
 
-function canRetry(removal: BackgroundRemovalSummary) {
-  return ["inference_failed", "storage_failed", "worker_lost"].includes(removal.failureCode ?? "");
+function canRetry(removal: BackgroundRemovalEntry) {
+  return (
+    removal.creation === "failed" ||
+    (!!removal.failureCode && isRetryableFailure(removal.failureCode))
+  );
 }
 
-function failureMessage(code: NonNullable<BackgroundRemovalSummary["failureCode"]>) {
+function failureMessage(code: NonNullable<BackgroundRemovalEntry["failureCode"]>) {
   switch (code) {
     case "invalid_image":
       return "The uploaded file is not a valid image.";
@@ -356,25 +342,5 @@ function failureMessage(code: NonNullable<BackgroundRemovalSummary["failureCode"
     case "storage_failed":
     case "worker_lost":
       return "Processing failed. You can try again.";
-  }
-}
-
-function backgroundRemovalErrorMessage(error: BackgroundRemovalError) {
-  switch (error.kind) {
-    case "INPUT_NOT_FOUND":
-    case "INPUT_NOT_READY":
-      return "The uploaded image is not ready. Try uploading it again.";
-    case "UNSUPPORTED_IMAGE":
-      return "Choose a JPEG, PNG, WebP, or AVIF image.";
-    case "IMAGE_TOO_LARGE":
-      return "Choose an image no larger than 50 MiB.";
-    case "REQUEST_CONFLICT":
-      return "This request ID already belongs to a different image.";
-    case "BACKGROUND_REMOVAL_NOT_FOUND":
-      return "That background-removal request no longer exists.";
-    case "RETRY_NOT_ALLOWED":
-      return "This failure cannot be fixed by retrying the same image.";
-    case "LEASE_LOST":
-      return "The processing lease expired.";
   }
 }

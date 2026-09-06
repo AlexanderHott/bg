@@ -10,11 +10,12 @@ import {
   MAX_BACKGROUND_REMOVAL_INPUT_SIDE,
   MAX_BACKGROUND_REMOVAL_INPUT_SIZE_BYTES,
 } from "./policy";
+import { resizePixels } from "./resampling";
 import type { BackgroundRemovalFailureCode } from "./schema";
 
 const MODEL_INPUT_SIZE = 1_024;
 const EXPECTED_MODEL_SHA256 = "5600024376f572a557870a5eb0afb1e5961636bef4e1e22132025467d0f03333";
-const SUPPORTED_FORMATS = new Set(["avif", "jpeg", "png", "webp"]);
+const SUPPORTED_FORMATS = new Set(["jpeg", "png", "webp"]);
 const IMAGE_NET_MEAN = [0.485, 0.456, 0.406] as const;
 const IMAGE_NET_STANDARD_DEVIATION = [0.229, 0.224, 0.225] as const;
 type ImageMetadata = Awaited<ReturnType<ReturnType<typeof sharp>["metadata"]>>;
@@ -131,7 +132,7 @@ async function decodeSource(inputPath: string) {
 }
 
 async function createInputTensor(source: Awaited<ReturnType<typeof decodeSource>>) {
-  const rgb = await sharp(source.data, {
+  const sourceRgb = await sharp(source.data, {
     raw: {
       width: source.info.width,
       height: source.info.height,
@@ -139,9 +140,18 @@ async function createInputTensor(source: Awaited<ReturnType<typeof decodeSource>
     },
   })
     .removeAlpha()
-    .resize(MODEL_INPUT_SIZE, MODEL_INPUT_SIZE, { fit: "fill" })
     .raw()
     .toBuffer();
+  // Remove alpha before resizing so premultiplication cannot change the model's RGB input.
+  const rgb = resizePixels({
+    data: sourceRgb,
+    width: source.info.width,
+    height: source.info.height,
+    channels: 3,
+    targetWidth: MODEL_INPUT_SIZE,
+    targetHeight: MODEL_INPUT_SIZE,
+    kernel: "linear",
+  });
 
   const pixels = MODEL_INPUT_SIZE ** 2;
   const tensorData = new Float32Array(3 * pixels);
@@ -167,18 +177,23 @@ async function resizeAlpha(logits: Tensor, width: number, height: number) {
     const value = logits.data[index] ?? 0;
     const sigmoid =
       value >= 0 ? 1 / (1 + Math.exp(-value)) : Math.exp(value) / (1 + Math.exp(value));
-    alpha[index] = Math.round(sigmoid * 255);
+    alpha[index] = Math.floor(sigmoid * 255);
   }
 
-  return sharp(alpha, { raw: { width: MODEL_INPUT_SIZE, height: MODEL_INPUT_SIZE, channels: 1 } })
-    .resize(width, height, { fit: "fill" })
-    .toColourspace("b-w")
-    .raw()
-    .toBuffer();
+  return resizePixels({
+    data: alpha,
+    width: MODEL_INPUT_SIZE,
+    height: MODEL_INPUT_SIZE,
+    channels: 1,
+    targetWidth: width,
+    targetHeight: height,
+    kernel: "cubic",
+  });
 }
 
 function validateMetadata(metadata: ImageMetadata) {
-  if (!metadata.format || !SUPPORTED_FORMATS.has(metadata.format)) {
+  const isAvif = metadata.format === "heif" && metadata.compression === "av1";
+  if (!isAvif && (!metadata.format || !SUPPORTED_FORMATS.has(metadata.format))) {
     throw new BackgroundRemovalImageError("unsupported_image");
   }
   if ((metadata.pages ?? 1) !== 1 || !metadata.width || !metadata.height) {

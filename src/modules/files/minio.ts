@@ -9,6 +9,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   ListPartsCommand,
   NoSuchKey,
   NoSuchUpload,
@@ -76,6 +77,25 @@ export async function startMultipartUpload(options: {
 
 const SIGNED_URL_LIFETIME_SECONDS = 15 * 60;
 const SIGNED_VIEW_URL_LIFETIME_SECONDS = 60 * 60;
+
+export async function listObjects(options: { prefix: string; cursor?: string }) {
+  const response = await internalClient.send(
+    new ListObjectsV2Command({
+      Bucket: envServer.S3_BUCKET,
+      Prefix: options.prefix,
+      ContinuationToken: options.cursor,
+      MaxKeys: 100,
+    }),
+  );
+  return {
+    objects: (response.Contents ?? []).flatMap((object) =>
+      object.Key && object.LastModified
+        ? [{ key: object.Key, lastModified: object.LastModified }]
+        : [],
+    ),
+    nextCursor: response.NextContinuationToken,
+  };
+}
 
 export type SignUploadPartError =
   | {

@@ -69,8 +69,8 @@ orphan, but it cannot overwrite the selected result. Clean unreferenced objects 
   inference duration. Alert before sustained worker memory reaches 7 GiB.
 - On shutdown, stop claiming work and let an unfinished lease expire if the current job cannot
   finish cleanly.
-- Build web and worker as separate targets from the same package. Run database migrations as an
-  explicit deployment step rather than during web or worker startup.
+- Build web and worker as separate targets from the same package. Apply migrations during production
+  startup under a shared PostgreSQL advisory lock. Use `db:migrate` for local migrations.
 
 ## Product flow
 

@@ -7,6 +7,7 @@
     "dev:worker": "tsx watch src/worker.ts",
     "generate-routes": "tsr generate",
     "build": "vp run build:web && vp run build:worker",
+    "benchmark:background-removal": "node --expose-gc --import tsx benchmarks/background-removal.ts",
     "build:web": "vp build",
     "build:worker": "vp build --config vite.worker.config.ts",
     "test": "vp test",

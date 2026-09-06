@@ -40,7 +40,6 @@ COPY --from=build /tmp/node /usr/local/bin/node
 COPY --from=build /app/.output ./.output
 COPY --from=build /app/drizzle ./drizzle
 COPY --from=build /app/instrumentation.mjs ./instrumentation.mjs
-COPY --from=build /app/scripts ./scripts
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app/package.json ./
 
@@ -54,3 +53,6 @@ ADD --checksum=sha256:5600024376f572a557870a5eb0afb1e5961636bef4e1e22132025467d0
   https://github.com/ZhengPeng7/BiRefNet/releases/download/v1/BiRefNet-general-bb_swin_v1_tiny-epoch_232.onnx \
   /opt/bg/models/birefnet.onnx
 CMD ["node", ".output/worker/index.mjs"]
+
+# A default image build runs the web server.
+FROM runtime AS web

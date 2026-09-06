@@ -3,11 +3,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: web
     depends_on:
       minio-init:
         condition: service_completed_successfully
-      migrate:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -49,8 +50,8 @@ services:
     depends_on:
       minio-init:
         condition: service_completed_successfully
-      migrate:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     stop_grace_period: 10m
     mem_limit: 8g
@@ -91,20 +92,6 @@ services:
       start_period: 10s
     tmpfs:
       - /tmp/bg:size=1g,mode=1777
-    networks:
-      - app
-
-  migrate:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: ["node", "scripts/migrate.mjs"]
-    restart: "no"
-    environment:
-      DATABASE_URL: "postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres:5432/bg"
-    depends_on:
-      postgres:
-        condition: service_healthy
     networks:
       - app
 

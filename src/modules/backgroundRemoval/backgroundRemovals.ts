@@ -64,6 +64,7 @@ export async function createBackgroundRemoval(options: {
           eq(fileSchema.files.id, options.inputFileId),
         ),
       )
+      .for("key share")
       .limit(1);
 
     if (!inputFile) return err({ kind: "INPUT_NOT_FOUND" } as const);
@@ -526,134 +527,186 @@ export async function publishBackgroundRemovalOutput(options: {
   if (!uploadResult.ok) return err({ kind: "STORAGE_FAILED" });
 
   const fileId = randomUUIDv7();
-  try {
-    const transactionResult = await db.transaction(async (tx) => {
-      const [attempt] = await tx
-        .select()
-        .from(backgroundRemovalSchema.backgroundRemovalAttempts)
-        .where(eq(backgroundRemovalSchema.backgroundRemovalAttempts.id, options.attemptId))
-        .for("update")
-        .limit(1);
-      const completedAt = options.now ?? new Date();
+  return db.transaction(async (tx) => {
+    const [attempt] = await tx
+      .select()
+      .from(backgroundRemovalSchema.backgroundRemovalAttempts)
+      .where(eq(backgroundRemovalSchema.backgroundRemovalAttempts.id, options.attemptId))
+      .for("update")
+      .limit(1);
+    const completedAt = options.now ?? new Date();
 
-      if (
-        !attempt ||
-        attempt.status !== "processing" ||
-        attempt.leaseToken !== options.leaseToken ||
-        !attempt.leaseExpiresAt ||
-        attempt.leaseExpiresAt <= completedAt
-      ) {
-        return err({ kind: "LEASE_LOST" } as const);
-      }
+    if (
+      !attempt ||
+      attempt.status !== "processing" ||
+      attempt.leaseToken !== options.leaseToken ||
+      !attempt.leaseExpiresAt ||
+      attempt.leaseExpiresAt <= completedAt
+    ) {
+      return err({ kind: "LEASE_LOST" } as const);
+    }
 
-      const [removal] = await tx
-        .select({
-          inputName: fileSchema.files.name,
-          deletedAt: backgroundRemovalSchema.backgroundRemovals.deletedAt,
-        })
-        .from(backgroundRemovalSchema.backgroundRemovals)
-        .innerJoin(
-          fileSchema.files,
-          eq(fileSchema.files.id, backgroundRemovalSchema.backgroundRemovals.inputFileId),
-        )
-        .where(eq(backgroundRemovalSchema.backgroundRemovals.id, attempt.backgroundRemovalId))
-        .limit(1);
-      if (!removal) throw new Error("Background removal input disappeared");
-      if (removal.deletedAt) return err({ kind: "LEASE_LOST" } as const);
+    const [removal] = await tx
+      .select({
+        inputName: fileSchema.files.name,
+        deletedAt: backgroundRemovalSchema.backgroundRemovals.deletedAt,
+      })
+      .from(backgroundRemovalSchema.backgroundRemovals)
+      .innerJoin(
+        fileSchema.files,
+        eq(fileSchema.files.id, backgroundRemovalSchema.backgroundRemovals.inputFileId),
+      )
+      .where(eq(backgroundRemovalSchema.backgroundRemovals.id, attempt.backgroundRemovalId))
+      .for("share", { of: backgroundRemovalSchema.backgroundRemovals })
+      .limit(1);
+    if (!removal) throw new Error("Background removal input disappeared");
+    if (removal.deletedAt) return err({ kind: "LEASE_LOST" } as const);
 
-      await tx.insert(fileSchema.files).values({
-        id: fileId,
-        organizationId: attempt.organizationId,
-        requestId: options.leaseToken,
-        state: "ready",
-        name: outputFileName(removal.inputName),
-        mediaType: "image/png",
-        expectedSizeBytes: options.sizeBytes,
-        sizeBytes: options.sizeBytes,
-        storageKey,
-        readyAt: completedAt,
-      });
-
-      const [completedAttempt] = await tx
-        .update(backgroundRemovalSchema.backgroundRemovalAttempts)
-        .set({ status: "ready", outputFileId: fileId, completedAt })
-        .where(
-          and(
-            eq(backgroundRemovalSchema.backgroundRemovalAttempts.id, attempt.id),
-            eq(backgroundRemovalSchema.backgroundRemovalAttempts.status, "processing"),
-            eq(backgroundRemovalSchema.backgroundRemovalAttempts.leaseToken, options.leaseToken),
-          ),
-        )
-        .returning();
-      if (!completedAttempt) throw new Error("Leased attempt changed while locked");
-
-      return ok({ fileId, storageKey });
+    await tx.insert(fileSchema.files).values({
+      id: fileId,
+      organizationId: attempt.organizationId,
+      requestId: options.leaseToken,
+      state: "ready",
+      name: outputFileName(removal.inputName),
+      mediaType: "image/png",
+      expectedSizeBytes: options.sizeBytes,
+      sizeBytes: options.sizeBytes,
+      storageKey,
+      readyAt: completedAt,
     });
 
-    if (!transactionResult.ok) await minio.deleteObject({ key: storageKey });
-    return transactionResult;
-  } catch (error) {
-    await minio.deleteObject({ key: storageKey });
-    throw error;
-  }
-}
-
-export async function cleanDeletedBackgroundRemoval(options?: { backgroundRemovalId?: string }) {
-  const [removal] = await db
-    .select()
-    .from(backgroundRemovalSchema.backgroundRemovals)
-    .where(
-      and(
-        sql`${backgroundRemovalSchema.backgroundRemovals.deletedAt} is not null`,
-        options?.backgroundRemovalId
-          ? eq(backgroundRemovalSchema.backgroundRemovals.id, options.backgroundRemovalId)
-          : undefined,
-      ),
-    )
-    .orderBy(
-      backgroundRemovalSchema.backgroundRemovals.deletedAt,
-      backgroundRemovalSchema.backgroundRemovals.id,
-    )
-    .limit(1);
-  if (!removal?.deletedAt) return false;
-  const deletedAt = removal.deletedAt;
-
-  const outputFiles = await db
-    .select({ id: fileSchema.files.id, storageKey: fileSchema.files.storageKey })
-    .from(backgroundRemovalSchema.backgroundRemovalAttempts)
-    .innerJoin(
-      fileSchema.files,
-      eq(fileSchema.files.id, backgroundRemovalSchema.backgroundRemovalAttempts.outputFileId),
-    )
-    .where(eq(backgroundRemovalSchema.backgroundRemovalAttempts.backgroundRemovalId, removal.id));
-
-  for (const outputFile of outputFiles) {
-    const deleteResult = await minio.deleteObject({ key: outputFile.storageKey });
-    if (!deleteResult.ok) return false;
-  }
-
-  return db.transaction(async (tx) => {
-    const [deleted] = await tx
-      .delete(backgroundRemovalSchema.backgroundRemovals)
+    const [completedAttempt] = await tx
+      .update(backgroundRemovalSchema.backgroundRemovalAttempts)
+      .set({ status: "ready", outputFileId: fileId, completedAt })
       .where(
         and(
-          eq(backgroundRemovalSchema.backgroundRemovals.id, removal.id),
-          eq(backgroundRemovalSchema.backgroundRemovals.deletedAt, deletedAt),
+          eq(backgroundRemovalSchema.backgroundRemovalAttempts.id, attempt.id),
+          eq(backgroundRemovalSchema.backgroundRemovalAttempts.status, "processing"),
+          eq(backgroundRemovalSchema.backgroundRemovalAttempts.leaseToken, options.leaseToken),
         ),
       )
-      .returning({ id: backgroundRemovalSchema.backgroundRemovals.id });
-    if (!deleted) return false;
+      .returning();
+    if (!completedAttempt) throw new Error("Leased attempt changed while locked");
 
-    if (outputFiles.length > 0) {
-      await tx.delete(fileSchema.files).where(
-        inArray(
-          fileSchema.files.id,
-          outputFiles.map((file) => file.id),
-        ),
-      );
-    }
-    return true;
+    return ok({ fileId, storageKey });
   });
+}
+
+// Delete durable references first. A failed object deletion is retried by the orphan sweep.
+export async function cleanDeletedBackgroundRemoval(options?: { backgroundRemovalId?: string }) {
+  const deletedFiles = await db.transaction(async (tx) => {
+    const [removal] = await tx
+      .select()
+      .from(backgroundRemovalSchema.backgroundRemovals)
+      .where(
+        and(
+          sql`${backgroundRemovalSchema.backgroundRemovals.deletedAt} is not null`,
+          options?.backgroundRemovalId
+            ? eq(backgroundRemovalSchema.backgroundRemovals.id, options.backgroundRemovalId)
+            : undefined,
+        ),
+      )
+      .orderBy(
+        backgroundRemovalSchema.backgroundRemovals.deletedAt,
+        backgroundRemovalSchema.backgroundRemovals.id,
+      )
+      .limit(1);
+    if (!removal) return undefined;
+
+    const attempts = await tx
+      .select()
+      .from(backgroundRemovalSchema.backgroundRemovalAttempts)
+      .where(eq(backgroundRemovalSchema.backgroundRemovalAttempts.backgroundRemovalId, removal.id));
+    const fileIds = [
+      removal.inputFileId,
+      ...attempts.flatMap((attempt) => (attempt.outputFileId ? [attempt.outputFileId] : [])),
+    ];
+    // File locks serialize cleanup with creation of requests that reuse an input.
+    const files = await tx
+      .select()
+      .from(fileSchema.files)
+      .where(inArray(fileSchema.files.id, fileIds))
+      .orderBy(fileSchema.files.id)
+      .for("update");
+
+    await tx
+      .select()
+      .from(backgroundRemovalSchema.backgroundRemovalAttempts)
+      .where(eq(backgroundRemovalSchema.backgroundRemovalAttempts.backgroundRemovalId, removal.id))
+      .orderBy(backgroundRemovalSchema.backgroundRemovalAttempts.id)
+      .for("update");
+
+    const [deleted] = await tx
+      .delete(backgroundRemovalSchema.backgroundRemovals)
+      .where(eq(backgroundRemovalSchema.backgroundRemovals.id, removal.id))
+      .returning();
+    if (!deleted) return undefined;
+
+    const unreferenced = [];
+    for (const file of files) {
+      const [inputReference] = await tx
+        .select({ id: backgroundRemovalSchema.backgroundRemovals.id })
+        .from(backgroundRemovalSchema.backgroundRemovals)
+        .where(eq(backgroundRemovalSchema.backgroundRemovals.inputFileId, file.id))
+        .limit(1);
+      const [outputReference] = await tx
+        .select({ id: backgroundRemovalSchema.backgroundRemovalAttempts.id })
+        .from(backgroundRemovalSchema.backgroundRemovalAttempts)
+        .where(eq(backgroundRemovalSchema.backgroundRemovalAttempts.outputFileId, file.id))
+        .limit(1);
+      if (inputReference || outputReference) continue;
+      await tx.delete(fileSchema.files).where(eq(fileSchema.files.id, file.id));
+      unreferenced.push(file);
+    }
+    return unreferenced;
+  });
+  if (!deletedFiles) return false;
+  for (const file of deletedFiles) await minio.deleteObject({ key: file.storageKey });
+  return true;
+}
+
+// Sweep one bounded page, including objects left by a worker killed before publication.
+export async function cleanUnreferencedBackgroundRemovalObjects(options?: {
+  cursor?: string;
+  now?: Date;
+}) {
+  const now = options?.now ?? new Date();
+  const oldestAllowed = new Date(now.getTime() - 60 * 60 * 1_000);
+  const page = await minio.listObjects({ prefix: "organizations/", cursor: options?.cursor });
+  for (const object of page.objects) {
+    if (object.lastModified > oldestAllowed) continue;
+    const output =
+      /^organizations\/[^/]+\/background-removals\/[^/]+\/attempts\/([^/]+)\/leases\/([^/]+)\/output\.png$/.exec(
+        object.key,
+      );
+    const input = /^organizations\/[^/]+\/files\/[^/]+\/attempts\/[^/]+$/.test(object.key);
+    if (!output && !input) continue;
+
+    await db.transaction(async (tx) => {
+      if (output) {
+        const [attempt] = await tx
+          .select()
+          .from(backgroundRemovalSchema.backgroundRemovalAttempts)
+          .where(eq(backgroundRemovalSchema.backgroundRemovalAttempts.id, output[1]))
+          .for("update")
+          .limit(1);
+        if (
+          attempt?.status === "processing" &&
+          attempt.leaseToken === output[2] &&
+          attempt.leaseExpiresAt &&
+          attempt.leaseExpiresAt > now
+        )
+          return;
+      }
+      const [file] = await tx
+        .select({ id: fileSchema.files.id })
+        .from(fileSchema.files)
+        .where(eq(fileSchema.files.storageKey, object.key))
+        .limit(1);
+      if (!file) await minio.deleteObject({ key: object.key });
+    });
+  }
+  return page.nextCursor;
 }
 
 async function hydrateSummaries(

@@ -1,9 +1,11 @@
 import { mkdtemp, mkdir, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 
 import {
   claimNextBackgroundRemoval,
   cleanDeletedBackgroundRemoval,
+  cleanUnreferencedBackgroundRemovalObjects,
   failBackgroundRemovalAttempt,
   publishBackgroundRemovalOutput,
   recoverExpiredBackgroundRemovalAttempt,
@@ -22,6 +24,7 @@ const SCRATCH_ROOT = process.env.BACKGROUND_REMOVAL_SCRATCH_PATH ?? "/tmp/bg";
 const READY_FILE = join(SCRATCH_ROOT, "ready");
 const IDLE_WAIT_MS = 1_000;
 const LEASE_RENEWAL_MS = 15_000;
+const CLEANUP_INTERVAL_MS = 60_000;
 
 let stopping = false;
 const stopController = new AbortController();
@@ -33,10 +36,13 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
 }
 
 await mkdir(SCRATCH_ROOT, { recursive: true });
+await rm(READY_FILE, { force: true });
 const adapter = await createBiRefNetAdapter(MODEL_PATH);
 await adapter.warmUp();
 await writeFile(READY_FILE, "ready\n");
 
+let cleanupCursor: string | undefined;
+let nextCleanupAt = 0;
 try {
   while (!stopping) {
     while (await cleanDeletedBackgroundRemoval()) {
@@ -46,6 +52,11 @@ try {
       if (stopping) break;
     }
     if (stopping) break;
+
+    if (Date.now() >= nextCleanupAt) {
+      cleanupCursor = await cleanUnreferencedBackgroundRemovalObjects({ cursor: cleanupCursor });
+      nextCleanupAt = Date.now() + CLEANUP_INTERVAL_MS;
+    }
 
     const job = await claimNextBackgroundRemoval();
     if (!job) {
@@ -138,17 +149,7 @@ function requireLeaseToken(leaseToken: string | null) {
 
 async function waitForWork() {
   try {
-    await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(resolve, IDLE_WAIT_MS);
-      stopController.signal.addEventListener(
-        "abort",
-        () => {
-          clearTimeout(timeout);
-          reject(stopController.signal.reason);
-        },
-        { once: true },
-      );
-    });
+    await delay(IDLE_WAIT_MS, undefined, { signal: stopController.signal });
   } catch {
     return;
   }
