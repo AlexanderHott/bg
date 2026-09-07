@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
-  "entry": ["instrumentation.mjs", "src/worker.ts", "server/routes/**/*.ts"],
+  "entry": ["instrumentation.mjs", "src/start.ts", "src/worker.ts", "server/routes/**/*.ts"],
   "ignoreDependencies": ["pg"],
   "duplicates": {
     // Pair-only similarity is useful review context, but not a reason to force a shared module.

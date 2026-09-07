@@ -1,7 +1,7 @@
 import { createForm, formOptions } from "@tanstack/solid-form";
-import { Link, useNavigate } from "@tanstack/solid-router";
+import { Link, useLocation, useNavigate, useRouter } from "@tanstack/solid-router";
 import { useServerFn } from "@tanstack/solid-start";
-import { createSignal } from "solid-js";
+import { createSignal, Show } from "solid-js";
 import * as v from "valibot";
 
 import {
@@ -11,6 +11,7 @@ import {
 } from "@/components/forms/FormControls";
 import { Button } from "@/components/ui/Button";
 import { Separator } from "@/components/ui/Separator";
+import { destinationAfterAuth, inviteTokenFromHash } from "@/modules/organizations/inviteToken";
 
 import { authenticateWithPasskey } from "../lib/webauthn/browser";
 import { beginPasskeyAuthFn, finishPasskeyAuthFn, signInFn } from "../serverFunctions";
@@ -24,6 +25,14 @@ interface LoginFormData {
 export function SignInForm() {
   const signIn = useServerFn(signInFn);
   const navigate = useNavigate();
+  const router = useRouter();
+  const location = useLocation();
+  const invite = () => inviteTokenFromHash(location().hash);
+  const [error, setError] = createSignal<string>();
+  async function finishSignIn() {
+    await router.invalidate();
+    await navigate(destinationAfterAuth(invite()));
+  }
 
   const beginPasskeyAuth = useServerFn(beginPasskeyAuthFn);
   const finishPasskeyAuth = useServerFn(finishPasskeyAuthFn);
@@ -38,13 +47,13 @@ export function SignInForm() {
   const form = createForm(() => ({
     ...formOpts,
     onSubmit: async ({ value }) => {
-      await signIn({
-        data: {
-          username: value.username,
-          password: value.password,
-        },
-      });
-      await navigate({ to: "/" });
+      setError(undefined);
+      try {
+        await signIn({ data: { username: value.username, password: value.password } });
+        await finishSignIn();
+      } catch {
+        setError("Could not sign in. Check your username and password and try again.");
+      }
     },
     validators: {
       onChange: v.object({
@@ -57,6 +66,7 @@ export function SignInForm() {
   return (
     <div class="flex max-w-sm flex-col gap-4">
       <div>sign in</div>
+      <Show when={error()}>{(message) => <p role="alert">{message()}</p>}</Show>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -102,6 +112,7 @@ export function SignInForm() {
         variant="secondary"
         disabled={isPasskeyPending()}
         onClick={async () => {
+          setError(undefined);
           setIsPasskeyPending(true);
           try {
             const { ceremonyId, options } = await beginPasskeyAuth();
@@ -114,7 +125,9 @@ export function SignInForm() {
             await finishPasskeyAuth({
               data: { ceremonyId, credential: credentialResult.value },
             });
-            await navigate({ to: "/" });
+            await finishSignIn();
+          } catch {
+            setError("Could not sign in with your passkey. Try again or use your password.");
           } finally {
             setIsPasskeyPending(false);
           }
@@ -125,7 +138,7 @@ export function SignInForm() {
 
       <p class="text-muted-foreground text-sm">
         don't have an account?{" "}
-        <Link class="underline" to="/sign-up">
+        <Link class="underline" to="/sign-up" hash={invite()}>
           sign up
         </Link>
       </p>

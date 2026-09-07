@@ -261,6 +261,9 @@ importers:
       import-in-the-middle:
         specifier: 3.4.0
         version: 3.4.0
+      lucide-solid:
+        specifier: ^1.41.0
+        version: 1.41.0(solid-js@1.9.15)
       onnxruntime-node:
         specifier: ^1.29.0
         version: 1.29.0
@@ -3832,6 +3835,11 @@ packages:
 
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
+
+  lucide-solid@1.41.0:
+    resolution: {integrity: sha512-kqAHyabxyoI9badC2nTvvW88d90E4NYyXtBEFdHI5mKQYegw4NW6vXook7UU69tjBzO578bYVwbNqLT1Q5VRLw==}
+    peerDependencies:
+      solid-js: ^1.4.7
 
   lz-string@1.5.0:
     resolution: {integrity: sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ==}
@@ -7652,6 +7660,10 @@ snapshots:
   lru-cache@5.1.1:
     dependencies:
       yallist: 3.1.1
+
+  lucide-solid@1.41.0(solid-js@1.9.15):
+    dependencies:
+      solid-js: 1.9.15
 
   lz-string@1.5.0: {}
 

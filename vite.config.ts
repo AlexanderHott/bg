@@ -12,7 +12,11 @@ export default defineConfig(({ mode }) => ({
       ...defaultExclude,
       ...(process.env.RUN_DB_INTEGRATION === "1"
         ? []
-        : ["**/backgroundRemovals.integration.test.ts", "**/cleanup.integration.test.ts"]),
+        : [
+            "**/backgroundRemovals.integration.test.ts",
+            "**/cleanup.integration.test.ts",
+            "**/invites.integration.test.ts",
+          ]),
       ...(process.env.RUN_WORKER_INTEGRATION === "1" ? [] : ["**/worker.integration.test.ts"]),
     ],
   },

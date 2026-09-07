@@ -50,6 +50,13 @@ function RouteComponent() {
           >
             remove background
           </Link>
+          <Link
+            class="text-muted-foreground hover:text-foreground"
+            to="/$orgSlug/invites"
+            params={{ orgSlug: context().organization.slug }}
+          >
+            invites
+          </Link>
           <Link class="text-muted-foreground hover:text-foreground ml-auto" to="/">
             switch organization
           </Link>

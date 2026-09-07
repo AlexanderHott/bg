@@ -117,8 +117,9 @@ export async function getSession(options: GetSessionOptions) {
   options.signal?.throwIfAborted();
   const session = await db.query.sessions.findFirst({
     where: { id: options.sessionToken.id },
+    with: { user: { columns: { username: true } } },
   });
-  if (!session) {
+  if (!session?.user) {
     return undefined;
   }
 
@@ -135,6 +136,7 @@ export async function getSession(options: GetSessionOptions) {
   return {
     sessionId: session.id,
     userId: session.userId,
+    username: session.user.username,
   };
 }
 

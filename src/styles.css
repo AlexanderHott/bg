@@ -138,3 +138,14 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+.transparency-grid {
+  background-color: var(--background);
+  background-image: conic-gradient(
+    var(--muted) 25%,
+    transparent 0 50%,
+    var(--muted) 0 75%,
+    transparent 0
+  );
+  background-size: 16px 16px;
+}
