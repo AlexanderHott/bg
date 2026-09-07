@@ -240,9 +240,3 @@ export const finishPasskeyAuthFn = createServerFn({ method: "POST" })
     setSessionTokenCookie(result.value.sessionToken);
     return { userId: result.value.userId, sessionId: result.value.sessionId };
   });
-
-export const getSecretDataFn = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
-  .handler(async ({ context: { userId, sessionId } }) => {
-    return `${sessionId} - ${userId} - secret data`;
-  });
