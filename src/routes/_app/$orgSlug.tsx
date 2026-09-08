@@ -1,5 +1,11 @@
-import { createFileRoute, Link, Outlet, redirect } from "@tanstack/solid-router";
+import {
+  createHotkeySequence,
+  formatHotkeySequence,
+  type HotkeySequence,
+} from "@tanstack/solid-hotkeys";
+import { createFileRoute, Outlet, redirect } from "@tanstack/solid-router";
 
+import { ButtonLink } from "@/components/ui/ButtonLink";
 import { getOrganizationFn } from "@/modules/organizations/serverFunctions";
 
 export const Route = createFileRoute("/_app/$orgSlug")({
@@ -19,6 +25,22 @@ export const Route = createFileRoute("/_app/$orgSlug")({
 
 function RouteComponent() {
   const context = Route.useRouteContext();
+  const navigate = Route.useNavigate();
+  const homeHotkeySequence = ["G", "H"] satisfies HotkeySequence;
+  const removeBackgroundHotkeySequence = ["G", "B"] satisfies HotkeySequence;
+  const invitesHotkeySequence = ["G", "I"] satisfies HotkeySequence;
+  createHotkeySequence(homeHotkeySequence, () =>
+    navigate({ to: "/$orgSlug", params: { orgSlug: context().organization.slug } }),
+  );
+  createHotkeySequence(removeBackgroundHotkeySequence, () =>
+    navigate({
+      to: "/$orgSlug/remove-background",
+      params: { orgSlug: context().organization.slug },
+    }),
+  );
+  createHotkeySequence(invitesHotkeySequence, () =>
+    navigate({ to: "/$orgSlug/invites", params: { orgSlug: context().organization.slug } }),
+  );
 
   return (
     <div class="min-h-[calc(100vh-3.5rem)]">
@@ -28,31 +50,29 @@ function RouteComponent() {
           class="mx-auto flex min-h-12 w-full max-w-6xl flex-wrap items-center gap-x-5 gap-y-2 px-4 py-2 text-sm sm:px-6"
         >
           <span class="font-medium">{context().organization.name}</span>
-          <Link
-            class="text-muted-foreground hover:text-foreground"
+          <ButtonLink
+            variant="link"
             to="/$orgSlug"
             params={{ orgSlug: context().organization.slug }}
             activeOptions={{ exact: true }}
           >
-            home
-          </Link>
-          <Link
-            class="text-muted-foreground hover:text-foreground"
+            home · {formatHotkeySequence(homeHotkeySequence).toLocaleLowerCase()}
+          </ButtonLink>
+          <ButtonLink
+            variant="link"
             to="/$orgSlug/remove-background"
             params={{ orgSlug: context().organization.slug }}
           >
-            remove background
-          </Link>
-          <Link
-            class="text-muted-foreground hover:text-foreground"
+            remove background ·{" "}
+            {formatHotkeySequence(removeBackgroundHotkeySequence).toLocaleLowerCase()}
+          </ButtonLink>
+          <ButtonLink
+            variant="link"
             to="/$orgSlug/invites"
             params={{ orgSlug: context().organization.slug }}
           >
-            invites
-          </Link>
-          <Link class="text-muted-foreground hover:text-foreground ml-auto" to="/">
-            switch organization
-          </Link>
+            invites · {formatHotkeySequence(invitesHotkeySequence).toLocaleLowerCase()}
+          </ButtonLink>
         </nav>
       </div>
 

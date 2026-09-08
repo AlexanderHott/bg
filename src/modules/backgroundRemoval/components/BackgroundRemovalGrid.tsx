@@ -4,6 +4,7 @@ import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 
 import { Button } from "@/components/ui/Button";
 import { CopyPngButton } from "@/modules/files/components/CopyPngButton";
+import { selectImagePreview } from "@/modules/files/imagePreview";
 
 import type { BackgroundRemovalEntry } from "../browser";
 import { isRetryableFailure } from "../policy";
@@ -161,13 +162,11 @@ function BackgroundRemovalTile(props: {
   onRetry: (removal: BackgroundRemovalEntry) => Promise<void>;
   onDelete: (removal: BackgroundRemovalEntry) => Promise<void>;
 }) {
-  const [failedUrl, setFailedUrl] = createSignal<string>();
-  // Keep the preview URL while polling refreshes signatures; retry failures with the latest URL.
-  const image = createMemo<BackgroundRemovalEntry["input"]>((previous) => {
+  const [failedUrls, setFailedUrls] = createSignal<ReadonlySet<string>>(new Set());
+  const image = createMemo<ReturnType<typeof selectImagePreview>>((previous) => {
     const next =
       props.transparent && props.removal.output ? props.removal.output : props.removal.input;
-    const failed = failedUrl();
-    return previous?.id === next.id && previous.url && previous.url !== failed ? previous : next;
+    return selectImagePreview(next, previous, failedUrls());
   });
   return (
     <li
@@ -192,7 +191,10 @@ function BackgroundRemovalTile(props: {
             alt={`${props.transparent && props.removal.output ? "Transparent" : "Original"} ${props.removal.input.name}`}
             loading="lazy"
             decoding="async"
-            onError={() => setFailedUrl(image().url)}
+            onError={(event) => {
+              const url = event.currentTarget.src;
+              setFailedUrls((current) => new Set([...current, url]));
+            }}
           />
         </Show>
         <label

@@ -101,6 +101,20 @@ describe.runIf(process.env.RUN_DB_INTEGRATION === "1")("organization invites", (
     ).toEqual({ ok: false, error: "invalid" });
   });
 
+  test.each([1, 7, 30] as const)("persists a %i-day invite expiry", async (validityDays) => {
+    const { organizationId } = await setup();
+    const before = Date.now();
+    const result = await createInvite({ organizationId, userId: owner, validityDays });
+    const after = Date.now();
+    if (!result.ok) throw new Error("Could not create test invite");
+    const stored = await storedInvite(result.value.id);
+    const lifetimeMs = validityDays * 86400_000;
+    expect(stored.expiresAt.getTime()).toBeGreaterThanOrEqual(before + lifetimeMs);
+    expect(stored.expiresAt.getTime()).toBeLessThanOrEqual(after + lifetimeMs);
+    expect(stored.expiresAt).toEqual(result.value.expiresAt);
+    expect((await previewInvite({ token: result.value.token })).ok).toBe(true);
+  });
+
   test("revocation is scoped to the organization and prevents acceptance", async () => {
     const { organizationId, invite } = await setup();
     const other = await setup();

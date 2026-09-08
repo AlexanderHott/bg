@@ -81,7 +81,25 @@ test.each(["small", "oriented"])(
         return { output: new Tensor("float32", logits, [1, 1, 1024, 1024]) };
       });
       const adapter = await createBiRefNetAdapter(modelPath);
-      await adapter.removeBackground(new URL(`${name}-input.png`, fixtures).pathname, outputPath);
+      const inputThumbnailPath = join(directory, "input-thumbnail.webp");
+      const outputThumbnailPath = join(directory, "output-thumbnail.webp");
+      const result = await adapter.removeBackground(
+        new URL(`${name}-input.png`, fixtures).pathname,
+        outputPath,
+        { input: inputThumbnailPath, output: outputThumbnailPath },
+      );
+      expect(result.thumbnails.input?.sizeBytes).toBeGreaterThan(0);
+      expect(result.thumbnails.output?.sizeBytes).toBeGreaterThan(0);
+      const thumbnailDimensions =
+        name === "oriented"
+          ? { width: 480, height: 640 }
+          : { width: result.width, height: result.height };
+      for (const path of [inputThumbnailPath, outputThumbnailPath]) {
+        expect(await sharp(path).metadata()).toMatchObject({
+          format: "webp",
+          ...thumbnailDimensions,
+        });
+      }
       // Permit two RGB quantization levels between Pillow and libvips resampling.
       expect(maxTensorError).toBeLessThanOrEqual(2 / 255 / 0.224 + 0.000001);
       const actual = await sharp(outputPath).raw().toBuffer({ resolveWithObject: true });
@@ -149,3 +167,32 @@ test.each([255, 128])(
     }
   },
 );
+
+test("publishes the PNG and remaining preview when one thumbnail cannot be written", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "bg-thumbnail-failure-"));
+  const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+  try {
+    const modelPath = join(directory, "model.onnx");
+    const outputPath = join(directory, "output.png");
+    await writeFile(modelPath, "stub model");
+    run.mockResolvedValue({
+      output: new Tensor("float32", new Float32Array(1024 ** 2), [1, 1, 1024, 1024]),
+    });
+    const adapter = await createBiRefNetAdapter(modelPath);
+    const result = await adapter.removeBackground(
+      new URL("./fixtures/small-input.png", import.meta.url).pathname,
+      outputPath,
+      {
+        input: join(directory, "missing", "thumbnail.webp"),
+        output: join(directory, "output-thumbnail.webp"),
+      },
+    );
+    expect(result.thumbnails.input).toBeUndefined();
+    expect(result.thumbnails.output?.sizeBytes).toBeGreaterThan(0);
+    expect(await sharp(outputPath).metadata()).toMatchObject({ format: "png", hasAlpha: true });
+    expect(warning).toHaveBeenCalledOnce();
+  } finally {
+    warning.mockRestore();
+    await rm(directory, { recursive: true, force: true });
+  }
+});

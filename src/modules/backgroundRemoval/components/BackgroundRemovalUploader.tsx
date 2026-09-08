@@ -1,4 +1,5 @@
 import { Dialog } from "@kobalte/core/dialog";
+import { CloudUpload } from "lucide-solid";
 import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 
 import { Button } from "@/components/ui/Button";
@@ -123,21 +124,19 @@ export function BackgroundRemovalUploader(props: {
 
   return (
     <>
-      <div class="bg-muted/20 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-dashed px-5 py-4">
-        <div>
-          <p class="text-sm font-medium">drop or paste images anywhere</p>
-          <p class="text-muted-foreground mt-1 text-xs">
-            jpeg, png, webp, avif · up to 50 MiB each
-          </p>
-        </div>
+      <div class="bg-muted/20 flex flex-col items-center justify-center rounded-xl border border-dashed px-6 py-10 text-center">
+        <CloudUpload class="text-muted-foreground size-12" aria-hidden="true" />
+        <p class="mt-4 text-sm font-medium">drop or paste images anywhere</p>
+        <p class="text-muted-foreground mt-1 text-xs">jpeg, png, webp, avif · up to 50 MiB each</p>
         <Button
           ref={(element) => {
             chooseButton = element;
           }}
-          variant="outline"
+          class="mt-4 h-10 min-w-36"
+          disabled={batch.isUploading()}
           onClick={chooseFiles}
         >
-          + add images
+          choose images
         </Button>
         <input
           ref={(element) => {

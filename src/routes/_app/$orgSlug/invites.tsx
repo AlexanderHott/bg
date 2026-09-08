@@ -1,14 +1,38 @@
 import { createFileRoute, useRouter } from "@tanstack/solid-router";
 import { useServerFn } from "@tanstack/solid-start";
 import { createSignal, For, Show } from "solid-js";
+import type * as v from "valibot";
 
 import { Button } from "@/components/ui/Button";
+import {
+  Select,
+  SelectContent,
+  SelectFieldLabel,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/Select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/Table";
 import {
   createInviteFn,
   listInvitesFn,
   revokeInviteFn,
 } from "@/modules/organizations/inviteServerFunctions";
 import { inviteErrorMessages, inviteStatus } from "@/modules/organizations/inviteStatus";
+import type { InviteValidityDaysValidator } from "@/modules/organizations/validators";
+
+const inviteValidityOptions = [
+  { days: 1, label: "24 hours" },
+  { days: 7, label: "7 days" },
+  { days: 30, label: "30 days" },
+] as const;
 
 export const Route = createFileRoute("/_app/$orgSlug/invites")({
   loader: ({ context }) => listInvitesFn({ data: { organizationId: context.organization.id } }),
@@ -22,8 +46,10 @@ function InvitesPage() {
   const createInvite = useServerFn(createInviteFn);
   const revokeInvite = useServerFn(revokeInviteFn);
   const [creating, setCreating] = createSignal(false);
+  const [validityDays, setValidityDays] =
+    createSignal<v.InferOutput<typeof InviteValidityDaysValidator>>(7);
   const [revoking, setRevoking] = createSignal<string>();
-  const [newInvite, setNewInvite] = createSignal<{ id: string; url: string; expiresAt: Date }>();
+  const [newInvite, setNewInvite] = createSignal<{ id: string; url: string }>();
   const [error, setError] = createSignal<string>();
   const [copyMessage, setCopyMessage] = createSignal<string>();
 
@@ -33,7 +59,9 @@ function InvitesPage() {
     setError(undefined);
     setCopyMessage(undefined);
     try {
-      const result = await createInvite({ data: { organizationId: context().organization.id } });
+      const result = await createInvite({
+        data: { organizationId: context().organization.id, validityDays: validityDays() },
+      });
       if (!result.ok) {
         setError(inviteErrorMessages[result.error]);
         return;
@@ -41,7 +69,6 @@ function InvitesPage() {
       setNewInvite({
         id: result.value.id,
         url: `${window.location.origin}/invite/accept#${result.value.token}`,
-        expiresAt: result.value.expiresAt,
       });
       await router.invalidate();
     } catch {
@@ -74,19 +101,38 @@ function InvitesPage() {
 
   return (
     <section class="flex flex-col gap-6">
-      <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 class="text-2xl font-semibold">invites</h1>
-          <p class="text-muted-foreground mt-1 text-sm">
-            Share a link to invite someone to {context().organization.name}.
-          </p>
-          <p class="text-muted-foreground mt-1 text-sm">
-            Each link works once and expires in seven days. Anyone who joins can invite others.
-          </p>
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <h1 class="text-2xl font-semibold">invites</h1>
+        <div class="flex flex-wrap items-center gap-2">
+          <Select
+            id="invite-validity"
+            class="flex items-center gap-2"
+            options={[...inviteValidityOptions]}
+            optionValue="days"
+            optionTextValue="label"
+            value={inviteValidityOptions.find((option) => option.days === validityDays())}
+            disabled={creating()}
+            disallowEmptySelection
+            gutter={4}
+            onChange={(option) => {
+              if (option) setValidityDays(option.days);
+            }}
+            itemComponent={(props) => (
+              <SelectItem item={props.item}>{props.item.rawValue.label}</SelectItem>
+            )}
+          >
+            <SelectFieldLabel class="text-muted-foreground text-sm">expires in</SelectFieldLabel>
+            <SelectTrigger>
+              <SelectValue<(typeof inviteValidityOptions)[number]>>
+                {(state) => state.selectedOption().label}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent />
+          </Select>
+          <Button disabled={creating()} onClick={create}>
+            {creating() ? "creating..." : "create invite"}
+          </Button>
         </div>
-        <Button disabled={creating()} onClick={create}>
-          {creating() ? "creating..." : "create invite"}
-        </Button>
       </div>
       <Show when={error()}>{(message) => <p role="alert">{message()}</p>}</Show>
       <Show when={newInvite()}>
@@ -117,9 +163,7 @@ function InvitesPage() {
                 copy link
               </Button>
             </div>
-            <p class="text-muted-foreground text-sm">
-              Copy this link before leaving. It expires {invite().expiresAt.toLocaleString()}.
-            </p>
+            <p class="text-muted-foreground text-sm">Copy this link before leaving.</p>
             <Show when={copyMessage()}>
               {(message) => (
                 <p role="status" class="text-sm">
@@ -144,33 +188,42 @@ function InvitesPage() {
               when={invites().length}
               fallback={<p class="text-muted-foreground">No invites yet.</p>}
             >
-              <ul class="flex flex-col gap-3">
-                <For each={invites()}>
-                  {(invite) => (
-                    <li class="bg-background flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
-                      <div>
-                        <p class="font-medium">{inviteStatus(invite)}</p>
-                        <p class="text-muted-foreground text-sm">
-                          Created by {invite.createdBy ?? "deleted user"} on{" "}
-                          {invite.createdAt.toLocaleString()}
-                        </p>
-                        <p class="text-muted-foreground text-sm">
-                          Expires {invite.expiresAt.toLocaleString()}
-                        </p>
-                      </div>
-                      <Show when={inviteStatus(invite) === "pending"}>
-                        <Button
-                          variant="destructive"
-                          disabled={revoking() !== undefined}
-                          onClick={() => revoke(invite.id)}
-                        >
-                          {revoking() === invite.id ? "revoking..." : "revoke"}
-                        </Button>
-                      </Show>
-                    </li>
-                  )}
-                </For>
-              </ul>
+              <Table aria-label="invites">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead scope="col">status</TableHead>
+                    <TableHead scope="col">created by</TableHead>
+                    <TableHead scope="col">created</TableHead>
+                    <TableHead scope="col">expires</TableHead>
+                    <TableHead scope="col" class="text-right">
+                      actions
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <For each={invites()}>
+                    {(invite) => (
+                      <TableRow>
+                        <TableCell class="font-medium">{inviteStatus(invite)}</TableCell>
+                        <TableCell>{invite.createdBy ?? "deleted user"}</TableCell>
+                        <TableCell>{invite.createdAt.toLocaleString()}</TableCell>
+                        <TableCell>{invite.expiresAt.toLocaleString()}</TableCell>
+                        <TableCell class="text-right">
+                          <Show when={inviteStatus(invite) === "pending"}>
+                            <Button
+                              variant="destructive"
+                              disabled={revoking() !== undefined}
+                              onClick={() => revoke(invite.id)}
+                            >
+                              {revoking() === invite.id ? "revoking..." : "revoke"}
+                            </Button>
+                          </Show>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </For>
+                </TableBody>
+              </Table>
             </Show>
           );
         }}

@@ -15,8 +15,10 @@ import {
   cleanUnreferencedBackgroundRemovalObjects,
   createBackgroundRemoval,
   deleteBackgroundRemoval,
+  getBackgroundRemoval,
   publishBackgroundRemovalOutput,
 } from "./backgroundRemovals";
+import * as backgroundRemovalSchema from "./schema";
 
 vi.mock("@/modules/files/minio", async (importOriginal) => ({
   ...(await importOriginal<typeof minio>()),
@@ -53,6 +55,10 @@ describe.runIf(process.env.RUN_DB_INTEGRATION === "1")("background-removal clean
     });
   });
   afterEach(async () => {
+    vi.restoreAllMocks();
+    await db
+      .delete(backgroundRemovalSchema.backgroundRemovals)
+      .where(eq(backgroundRemovalSchema.backgroundRemovals.organizationId, organizationId));
     await db
       .delete(organizationSchema.organizations)
       .where(eq(organizationSchema.organizations.id, organizationId));
@@ -72,6 +78,154 @@ describe.runIf(process.env.RUN_DB_INTEGRATION === "1")("background-removal clean
     await deleteBackgroundRemoval({ organizationId, backgroundRemovalId: id });
     await cleanDeletedBackgroundRemoval({ backgroundRemovalId: id });
   }
+
+  async function claimPublication() {
+    const job = await claimNextBackgroundRemoval({
+      organizationId,
+      now: new Date(Date.now() + 1000),
+    });
+    if (!job?.attempt.leaseToken) throw new Error("No job");
+    return {
+      attemptId: job.attempt.id,
+      leaseToken: job.attempt.leaseToken,
+      path: "mock.png",
+      sizeBytes: 100,
+      thumbnails: {
+        input: { path: "input-thumbnail.webp", sizeBytes: 20 },
+        output: { path: "output-thumbnail.webp", sizeBytes: 30 },
+      },
+    };
+  }
+
+  test("publishes signed previews once and reuses a shared input thumbnail", async () => {
+    const first = await create();
+    const publication = await claimPublication();
+    const output = await publishBackgroundRemovalOutput(publication);
+    if (!output.ok) throw new Error(output.error.kind);
+    expect(minio.putObjectFromFile).toHaveBeenCalledTimes(3);
+    await expect(publishBackgroundRemovalOutput(publication)).resolves.toEqual(output);
+    expect(minio.putObjectFromFile).toHaveBeenCalledTimes(3);
+
+    const summary = await getBackgroundRemoval({ organizationId, backgroundRemovalId: first.id });
+    if (!summary.ok) throw new Error(summary.error.kind);
+    expect(summary.value.input.thumbnailUrl).toContain("input-thumbnail.webp");
+    expect(summary.value.output?.thumbnailUrl).toContain("output-thumbnail.webp");
+    expect(summary.value.output?.url).toContain("output.png");
+    const inputThumbnailKey = output.value.storageKey.replace("output.png", "input-thumbnail.webp");
+
+    const second = await create();
+    const secondOutput = await publishBackgroundRemovalOutput(await claimPublication());
+    expect(secondOutput.ok).toBe(true);
+    expect(minio.putObjectFromFile).toHaveBeenCalledTimes(5);
+    await remove(first.id);
+    expect(minio.deleteObject).not.toHaveBeenCalledWith({ key: inputThumbnailKey });
+    vi.mocked(minio.listObjects).mockResolvedValueOnce({
+      objects: [{ key: inputThumbnailKey, lastModified: new Date(0) }],
+      nextCursor: undefined,
+    });
+    await cleanUnreferencedBackgroundRemovalObjects();
+    expect(minio.deleteObject).not.toHaveBeenCalledWith({ key: inputThumbnailKey });
+    await remove(second.id);
+    expect(minio.deleteObject).toHaveBeenCalledWith({ key: inputThumbnailKey });
+  });
+
+  test("keeps the successful output when a thumbnail upload fails", async () => {
+    const removal = await create();
+    const publication = await claimPublication();
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.mocked(minio.putObjectFromFile)
+      .mockResolvedValueOnce(ok(undefined))
+      .mockResolvedValueOnce(err({ kind: "PUT_OBJECT_FAILED", cause: new Error("offline") }));
+    const output = await publishBackgroundRemovalOutput(publication);
+    expect(output.ok).toBe(true);
+    const summary = await getBackgroundRemoval({ organizationId, backgroundRemovalId: removal.id });
+    if (!summary.ok) throw new Error(summary.error.kind);
+    expect(summary.value.status).toBe("ready");
+    expect(summary.value.input.thumbnailUrl).toBeUndefined();
+    expect(summary.value.output?.thumbnailUrl).toContain("output-thumbnail.webp");
+    expect(warning).toHaveBeenCalledOnce();
+  });
+
+  test("concurrent removals share one input thumbnail and sweep the unused upload", async () => {
+    await create();
+    await create();
+    const first = await claimPublication();
+    const second = await claimPublication();
+    const uploads = Promise.withResolvers<void>();
+    let arrivals = 0;
+    async function upload() {
+      if (++arrivals === 2) uploads.resolve();
+      await uploads.promise;
+      return ok(undefined);
+    }
+    vi.mocked(minio.putObjectFromFile)
+      .mockImplementationOnce(upload)
+      .mockImplementationOnce(upload);
+    const results = await Promise.all([
+      publishBackgroundRemovalOutput(first),
+      publishBackgroundRemovalOutput(second),
+    ]);
+    expect(results.every((result) => result.ok)).toBe(true);
+    const [input] = await db
+      .select()
+      .from(fileSchema.files)
+      .where(eq(fileSchema.files.id, inputFileId));
+    expect(input?.thumbnailStorageKey).toBeTruthy();
+    const uploadedKeys = vi
+      .mocked(minio.putObjectFromFile)
+      .mock.calls.map(([options]) => options.key);
+    vi.mocked(minio.listObjects).mockResolvedValueOnce({
+      objects: uploadedKeys.map((key) => ({ key, lastModified: new Date(0) })),
+      nextCursor: undefined,
+    });
+    await cleanUnreferencedBackgroundRemovalObjects();
+    const unused = uploadedKeys.filter(
+      (key) => key.endsWith("input-thumbnail.webp") && key !== input?.thumbnailStorageKey,
+    );
+    expect(unused).toHaveLength(1);
+    expect(minio.deleteObject).toHaveBeenCalledExactlyOnceWith({ key: unused[0] });
+  });
+
+  test.each(["expired", "deleted"])(
+    "does not attach thumbnails if the job is %s during upload",
+    async (reason) => {
+      const removal = await create();
+      const publication = await claimPublication();
+      vi.mocked(minio.putObjectFromFile).mockImplementationOnce(async () => {
+        if (reason === "deleted") {
+          await deleteBackgroundRemoval({ organizationId, backgroundRemovalId: removal.id });
+        } else {
+          await db
+            .update(backgroundRemovalSchema.backgroundRemovalAttempts)
+            .set({ leaseExpiresAt: new Date(0) })
+            .where(eq(backgroundRemovalSchema.backgroundRemovalAttempts.id, publication.attemptId));
+        }
+        return ok(undefined);
+      });
+      await expect(publishBackgroundRemovalOutput(publication)).resolves.toEqual({
+        ok: false,
+        error: { kind: "LEASE_LOST" },
+      });
+      const files = await db
+        .select()
+        .from(fileSchema.files)
+        .where(eq(fileSchema.files.organizationId, organizationId));
+      expect(files).toHaveLength(1);
+      expect(files[0]?.thumbnailStorageKey).toBeNull();
+
+      if (reason === "deleted")
+        await cleanDeletedBackgroundRemoval({ backgroundRemovalId: removal.id });
+      const uploadedKeys = vi
+        .mocked(minio.putObjectFromFile)
+        .mock.calls.map(([options]) => options.key);
+      vi.mocked(minio.listObjects).mockResolvedValueOnce({
+        objects: uploadedKeys.map((key) => ({ key, lastModified: new Date(0) })),
+        nextCursor: undefined,
+      });
+      await cleanUnreferencedBackgroundRemovalObjects();
+      for (const key of uploadedKeys) expect(minio.deleteObject).toHaveBeenCalledWith({ key });
+    },
+  );
 
   test("keeps a shared input until its last request is deleted", async () => {
     const first = await create();
@@ -100,10 +254,15 @@ describe.runIf(process.env.RUN_DB_INTEGRATION === "1")("background-removal clean
       leaseToken: job.attempt.leaseToken,
       path: "mock.png",
       sizeBytes: 100,
+      thumbnails: { output: { path: "thumbnail.webp", sizeBytes: 20 } },
     });
     if (!output.ok) throw new Error(output.error.kind);
+    const thumbnailKey = output.value.storageKey.replace("output.png", "output-thumbnail.webp");
     vi.mocked(minio.listObjects).mockResolvedValueOnce({
-      objects: [{ key: output.value.storageKey, lastModified: new Date(0) }],
+      objects: [output.value.storageKey, thumbnailKey].map((key) => ({
+        key,
+        lastModified: new Date(0),
+      })),
       nextCursor: undefined,
     });
     await cleanUnreferencedBackgroundRemovalObjects();
@@ -111,8 +270,10 @@ describe.runIf(process.env.RUN_DB_INTEGRATION === "1")("background-removal clean
     const second = await create(output.value.fileId);
     await remove(first.id);
     expect(minio.deleteObject).not.toHaveBeenCalledWith({ key: output.value.storageKey });
+    expect(minio.deleteObject).not.toHaveBeenCalledWith({ key: thumbnailKey });
     await remove(second.id);
     expect(minio.deleteObject).toHaveBeenCalledWith({ key: output.value.storageKey });
+    expect(minio.deleteObject).toHaveBeenCalledWith({ key: thumbnailKey });
   });
 
   test("serializes request creation with cleanup of the same input", async () => {
@@ -163,9 +324,14 @@ describe.runIf(process.env.RUN_DB_INTEGRATION === "1")("background-removal clean
     vi.mocked(minio.listObjects).mockResolvedValueOnce({
       objects: [
         { key: active, lastModified },
+        { key: active.replace("output.png", "input-thumbnail.webp"), lastModified },
+        { key: active.replace("output.png", "output-thumbnail.webp"), lastModified },
         { key: inputStorageKey, lastModified },
         { key: orphan, lastModified },
+        { key: orphan.replace("output.png", "input-thumbnail.webp"), lastModified },
+        { key: orphan.replace("output.png", "output-thumbnail.webp"), lastModified },
         { key: recent, lastModified: now },
+        { key: recent.replace("output.png", "output-thumbnail.webp"), lastModified: now },
         { key: "unrelated-object", lastModified },
       ],
       nextCursor: undefined,
@@ -175,6 +341,9 @@ describe.runIf(process.env.RUN_DB_INTEGRATION === "1")("background-removal clean
       prefix: "organizations/",
       cursor: "previous-page",
     });
-    expect(minio.deleteObject).toHaveBeenCalledExactlyOnceWith({ key: orphan });
+    expect(minio.deleteObject).toHaveBeenCalledTimes(3);
+    for (const name of ["output.png", "input-thumbnail.webp", "output-thumbnail.webp"]) {
+      expect(minio.deleteObject).toHaveBeenCalledWith({ key: orphan.replace("output.png", name) });
+    }
   });
 });

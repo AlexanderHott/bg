@@ -13,6 +13,7 @@ type FormTextFieldProps = {
   label: string;
   type: "text" | "password";
   autocomplete?: string;
+  "data-1p-ignore"?: boolean;
   validatingMessage?: string;
   successMessage?: string;
   field: () => {
@@ -44,6 +45,7 @@ export function FormTextField(props: FormTextFieldProps) {
       <TextFieldInput
         type={props.type}
         autocomplete={props.autocomplete}
+        data-1p-ignore={props["data-1p-ignore"]}
         name={field().name}
         value={field().state.value}
         aria-busy={isValidating()}

@@ -5,13 +5,19 @@ import { authMiddleware } from "@/modules/auth/middleware";
 import { getSessionFn } from "@/modules/auth/serverFunctions";
 
 import { acceptInvite, createInvite, listInvites, previewInvite, revokeInvite } from "./invites";
+import { InviteValidityDaysValidator } from "./validators";
 
 const organizationInput = v.object({ organizationId: v.pipe(v.string(), v.uuid()) });
 const tokenInput = v.object({ token: v.pipe(v.string(), v.maxLength(200)) });
 
 export const createInviteFn = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator(organizationInput)
+  .validator(
+    v.object({
+      ...organizationInput.entries,
+      validityDays: v.optional(InviteValidityDaysValidator, 7),
+    }),
+  )
   .handler(({ data, context }) => createInvite({ ...data, userId: context.userId }));
 
 export const listInvitesFn = createServerFn({ method: "GET" })

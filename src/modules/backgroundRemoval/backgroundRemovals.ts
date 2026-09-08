@@ -8,6 +8,7 @@ import { getReadyImages, type ReadyImage } from "@/modules/files/files";
 import { isSupportedImageMediaType } from "@/modules/files/images";
 import * as minio from "@/modules/files/minio";
 import * as fileSchema from "@/modules/files/schema";
+import type { ImageThumbnail } from "@/modules/files/thumbnailAdapter";
 
 import {
   ATTEMPT_LEASE_MS,
@@ -488,18 +489,34 @@ export async function publishBackgroundRemovalOutput(options: {
   leaseToken: string;
   path: string;
   sizeBytes: number;
+  thumbnails?: { input?: ImageThumbnail; output?: ImageThumbnail };
   now?: Date;
 }): Promise<
   Result<{ fileId: string; storageKey: string }, { kind: "LEASE_LOST" | "STORAGE_FAILED" }>
 > {
-  const [leasedAttempt] = await db
-    .select()
+  const [leased] = await db
+    .select({
+      attempt: backgroundRemovalSchema.backgroundRemovalAttempts,
+      inputFile: fileSchema.files,
+    })
     .from(backgroundRemovalSchema.backgroundRemovalAttempts)
+    .innerJoin(
+      backgroundRemovalSchema.backgroundRemovals,
+      eq(
+        backgroundRemovalSchema.backgroundRemovals.id,
+        backgroundRemovalSchema.backgroundRemovalAttempts.backgroundRemovalId,
+      ),
+    )
+    .innerJoin(
+      fileSchema.files,
+      eq(fileSchema.files.id, backgroundRemovalSchema.backgroundRemovals.inputFileId),
+    )
     .where(eq(backgroundRemovalSchema.backgroundRemovalAttempts.id, options.attemptId))
     .limit(1);
-  if (!leasedAttempt || leasedAttempt.leaseToken !== options.leaseToken) {
+  if (!leased || leased.attempt.leaseToken !== options.leaseToken) {
     return err({ kind: "LEASE_LOST" });
   }
+  const leasedAttempt = leased.attempt;
   if (leasedAttempt.status === "ready" && leasedAttempt.outputFileId) {
     const [file] = await db
       .select({ id: fileSchema.files.id, storageKey: fileSchema.files.storageKey })
@@ -526,8 +543,28 @@ export async function publishBackgroundRemovalOutput(options: {
   });
   if (!uploadResult.ok) return err({ kind: "STORAGE_FAILED" });
 
+  const inputThumbnailKey = leased.inputFile.thumbnailStorageKey
+    ? undefined
+    : await uploadThumbnail(options.thumbnails?.input, "input-thumbnail.webp");
+  const outputThumbnailKey = await uploadThumbnail(
+    options.thumbnails?.output,
+    "output-thumbnail.webp",
+  );
+
   const fileId = randomUUIDv7();
   return db.transaction(async (tx) => {
+    // Cleanup locks files before attempts. Use the same order when attaching a thumbnail.
+    const [inputFile] = await tx
+      .select({
+        id: fileSchema.files.id,
+        thumbnailStorageKey: fileSchema.files.thumbnailStorageKey,
+      })
+      .from(fileSchema.files)
+      .where(eq(fileSchema.files.id, leased.inputFile.id))
+      .for("no key update")
+      .limit(1);
+    if (!inputFile) return err({ kind: "LEASE_LOST" } as const);
+
     const [attempt] = await tx
       .select()
       .from(backgroundRemovalSchema.backgroundRemovalAttempts)
@@ -562,6 +599,13 @@ export async function publishBackgroundRemovalOutput(options: {
     if (!removal) throw new Error("Background removal input disappeared");
     if (removal.deletedAt) return err({ kind: "LEASE_LOST" } as const);
 
+    if (inputThumbnailKey && !inputFile.thumbnailStorageKey) {
+      await tx
+        .update(fileSchema.files)
+        .set({ thumbnailStorageKey: inputThumbnailKey })
+        .where(eq(fileSchema.files.id, inputFile.id));
+    }
+
     await tx.insert(fileSchema.files).values({
       id: fileId,
       organizationId: attempt.organizationId,
@@ -572,6 +616,7 @@ export async function publishBackgroundRemovalOutput(options: {
       expectedSizeBytes: options.sizeBytes,
       sizeBytes: options.sizeBytes,
       storageKey,
+      thumbnailStorageKey: outputThumbnailKey,
       readyAt: completedAt,
     });
 
@@ -590,6 +635,21 @@ export async function publishBackgroundRemovalOutput(options: {
 
     return ok({ fileId, storageKey });
   });
+
+  async function uploadThumbnail(thumbnail: ImageThumbnail | undefined, name: string) {
+    if (!thumbnail) return undefined;
+    const key = storageKey.replace(/output\.png$/, name);
+    const result = await minio.putObjectFromFile({
+      ...thumbnail,
+      key,
+      mediaType: "image/webp",
+    });
+    if (!result.ok) {
+      console.warn("Could not upload image thumbnail", { key, error: result.error });
+      return undefined;
+    }
+    return key;
+  }
 }
 
 // Delete durable references first. A failed object deletion is retried by the orphan sweep.
@@ -661,7 +721,10 @@ export async function cleanDeletedBackgroundRemoval(options?: { backgroundRemova
     return unreferenced;
   });
   if (!deletedFiles) return false;
-  for (const file of deletedFiles) await minio.deleteObject({ key: file.storageKey });
+  for (const file of deletedFiles) {
+    await minio.deleteObject({ key: file.storageKey });
+    if (file.thumbnailStorageKey) await minio.deleteObject({ key: file.thumbnailStorageKey });
+  }
   return true;
 }
 
@@ -676,7 +739,7 @@ export async function cleanUnreferencedBackgroundRemovalObjects(options?: {
   for (const object of page.objects) {
     if (object.lastModified > oldestAllowed) continue;
     const output =
-      /^organizations\/[^/]+\/background-removals\/[^/]+\/attempts\/([^/]+)\/leases\/([^/]+)\/output\.png$/.exec(
+      /^organizations\/[^/]+\/background-removals\/[^/]+\/attempts\/([^/]+)\/leases\/([^/]+)\/(?:output\.png|(?:input|output)-thumbnail\.webp)$/.exec(
         object.key,
       );
     const input = /^organizations\/[^/]+\/files\/[^/]+\/attempts\/[^/]+$/.test(object.key);
@@ -701,7 +764,12 @@ export async function cleanUnreferencedBackgroundRemovalObjects(options?: {
       const [file] = await tx
         .select({ id: fileSchema.files.id })
         .from(fileSchema.files)
-        .where(eq(fileSchema.files.storageKey, object.key))
+        .where(
+          or(
+            eq(fileSchema.files.storageKey, object.key),
+            eq(fileSchema.files.thumbnailStorageKey, object.key),
+          ),
+        )
         .limit(1);
       if (!file) await minio.deleteObject({ key: object.key });
     });

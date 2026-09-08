@@ -7,7 +7,7 @@ import { BACKGROUND_REMOVAL_MODEL_ID } from "./policy";
 import type { createBackgroundRemovalFn, deleteBackgroundRemovalFn } from "./serverFunctions";
 
 export type BackgroundRemovalEntry = Omit<BackgroundRemovalSummary, "input"> & {
-  input: ReadyFile & { url?: string };
+  input: ReadyFile & { url?: string; thumbnailUrl?: string };
   creation?: "pending" | "failed";
 };
 

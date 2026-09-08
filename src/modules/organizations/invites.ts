@@ -1,6 +1,7 @@
 import { randomUUIDv7 } from "node:crypto";
 
 import { and, desc, eq } from "drizzle-orm";
+import type * as v from "valibot";
 
 import { db } from "@/db";
 import { err, ok } from "@/lib/result";
@@ -10,8 +11,7 @@ import { users } from "@/modules/auth/schema";
 import { inviteStatus } from "./inviteStatus";
 import { parseInviteToken } from "./inviteToken";
 import { memberships, organizationInvites, organizations } from "./schema";
-
-const inviteLifetimeMs = 7 * 24 * 60 * 60 * 1000;
+import type { InviteValidityDaysValidator } from "./validators";
 
 function membershipWhere(organizationId: string, userId: string) {
   return and(eq(memberships.organizationId, organizationId), eq(memberships.userId, userId));
@@ -36,11 +36,15 @@ async function secretMatches(secret: string, secretHash: string) {
   );
 }
 
-export async function createInvite(options: { organizationId: string; userId: string }) {
+export async function createInvite(options: {
+  organizationId: string;
+  userId: string;
+  validityDays?: v.InferOutput<typeof InviteValidityDaysValidator>;
+}) {
   if (!(await isMember(options.organizationId, options.userId))) return err("forbidden" as const);
   const secret = secureRandomBytes(32);
   const id = randomUUIDv7();
-  const expiresAt = new Date(Date.now() + inviteLifetimeMs);
+  const expiresAt = new Date(Date.now() + (options.validityDays ?? 7) * 24 * 60 * 60 * 1000);
   await db.insert(organizationInvites).values({
     id,
     organizationId: options.organizationId,
