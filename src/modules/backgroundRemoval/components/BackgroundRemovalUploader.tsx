@@ -50,6 +50,19 @@ export function BackgroundRemovalUploader(props: {
 
   onMount(() => {
     const controller = new AbortController();
+    document.addEventListener(
+      "paste",
+      (event) => {
+        if (event.defaultPrevented || batch.isUploading()) return;
+        const images = Array.from(event.clipboardData?.files ?? []).filter((file) =>
+          file.type.startsWith("image/"),
+        );
+        if (!images.length) return;
+        event.preventDefault();
+        addFiles(images);
+      },
+      { signal: controller.signal },
+    );
     let dragDepth = 0;
     const hasFiles = (event: DragEvent) =>
       Array.from(event.dataTransfer?.types ?? []).includes("Files");
@@ -112,7 +125,7 @@ export function BackgroundRemovalUploader(props: {
     <>
       <div class="bg-muted/20 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-dashed px-5 py-4">
         <div>
-          <p class="text-sm font-medium">drop images anywhere</p>
+          <p class="text-sm font-medium">drop or paste images anywhere</p>
           <p class="text-muted-foreground mt-1 text-xs">
             jpeg, png, webp, avif · up to 50 MiB each
           </p>
@@ -124,7 +137,7 @@ export function BackgroundRemovalUploader(props: {
           variant="outline"
           onClick={chooseFiles}
         >
-          [ + add images ]
+          + add images
         </Button>
         <input
           ref={(element) => {
@@ -170,12 +183,7 @@ export function BackgroundRemovalUploader(props: {
           <Dialog.Overlay class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" />
           <div class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-8">
             <Dialog.Content
-              class="bg-background pointer-events-auto flex max-h-full w-full min-w-0 flex-col overflow-hidden rounded-2xl border shadow-xl"
-              classList={{
-                "max-w-lg": batch.entries().length <= 1,
-                "max-w-3xl": batch.entries().length === 2,
-                "max-w-5xl": batch.entries().length > 2,
-              }}
+              class="bg-background pointer-events-auto flex h-full w-full min-w-0 flex-col overflow-hidden rounded-2xl border shadow-xl"
               onCloseAutoFocus={(event) => {
                 event.preventDefault();
                 chooseButton.focus();
@@ -213,19 +221,13 @@ export function BackgroundRemovalUploader(props: {
                     </p>
                   }
                 >
-                  <ul
-                    class="grid grid-cols-1 gap-4"
-                    classList={{
-                      "sm:grid-cols-2": batch.entries().length > 1,
-                      "lg:grid-cols-3": batch.entries().length > 2,
-                    }}
-                  >
+                  <ul class="flex flex-wrap items-start gap-4">
                     <For each={batch.entries().map((entry) => entry.requestId)}>
                       {(requestId) => {
                         const entry = () =>
                           batch.entries().find((item) => item.requestId === requestId)!;
                         return (
-                          <li class="bg-card min-w-0 overflow-hidden rounded-xl border">
+                          <li class="bg-card w-80 max-w-full min-w-0 overflow-hidden rounded-xl border">
                             <div class="bg-muted/60 relative aspect-[4/3] overflow-hidden border-b">
                               <UploadPreview file={entry().file} />
                               <Show when={!batch.isUploading() && entry().status !== "uploaded"}>
@@ -282,7 +284,7 @@ export function BackgroundRemovalUploader(props: {
               </div>
               <div class="bg-muted/20 flex shrink-0 flex-col gap-3 border-t p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
                 <Button variant="ghost" disabled={batch.isUploading()} onClick={chooseFiles}>
-                  [ + add more ]
+                  + add more
                 </Button>
                 <div class="flex gap-2 [&>button]:flex-1 sm:[&>button]:flex-none">
                   <Show
@@ -293,13 +295,13 @@ export function BackgroundRemovalUploader(props: {
                           cancel
                         </Button>
                         <Button disabled={pendingCount() === 0} onClick={() => void upload()}>
-                          [ upload {pendingCount()} {pendingCount() === 1 ? "image" : "images"} ]
+                          upload {pendingCount()} {pendingCount() === 1 ? "image" : "images"}
                         </Button>
                       </>
                     }
                   >
                     <Button variant="outline" onClick={batch.cancel}>
-                      [ stop uploads ]
+                      stop uploads
                     </Button>
                   </Show>
                 </div>

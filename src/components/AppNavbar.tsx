@@ -1,3 +1,8 @@
+import {
+  createHotkeySequence,
+  formatHotkeySequence,
+  type HotkeySequence,
+} from "@tanstack/solid-hotkeys";
 import { Link, useNavigate } from "@tanstack/solid-router";
 import { useServerFn } from "@tanstack/solid-start";
 
@@ -8,6 +13,13 @@ import { Button } from "./ui/Button";
 export function AppNavbar() {
   const signOut = useServerFn(signOutFn);
   const navigate = useNavigate();
+
+  async function signOutHandler() {
+    await signOut();
+    await navigate({ to: "/sign-in" });
+  }
+  const signOutHotkeySequence = ["S", "O"] satisfies HotkeySequence;
+  createHotkeySequence(signOutHotkeySequence, () => signOutHandler());
 
   return (
     <header class="bg-background border-b">
@@ -27,14 +39,8 @@ export function AppNavbar() {
           </Link>
         </div>
 
-        <Button
-          variant="secondary"
-          onClick={async () => {
-            await signOut();
-            await navigate({ to: "/sign-in" });
-          }}
-        >
-          [ sign out ]
+        <Button variant="secondary" onClick={signOutHandler}>
+          sign out · {formatHotkeySequence(signOutHotkeySequence).toLocaleLowerCase()}
         </Button>
       </nav>
     </header>

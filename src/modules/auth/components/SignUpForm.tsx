@@ -1,17 +1,25 @@
-import { createForm, formOptions } from "@tanstack/solid-form";
+import { createForm, formOptions, revalidateLogic } from "@tanstack/solid-form";
+import {
+  createHotkey,
+  createHotkeySequence,
+  formatForDisplay,
+  formatHotkeySequence,
+  type HotkeySequence,
+  type RegisterableHotkey,
+} from "@tanstack/solid-hotkeys";
 import { Link, useLocation, useNavigate, useRouter } from "@tanstack/solid-router";
 import { useServerFn } from "@tanstack/solid-start";
 import { createSignal, Show } from "solid-js";
-import * as v from "valibot";
 
 import {
   FormSubmitButton,
   FormTextField,
   selectSubmissionState,
 } from "@/components/forms/FormControls";
+import { buttonVariants } from "@/components/ui/Button";
 import { destinationAfterAuth, inviteTokenFromHash } from "@/modules/organizations/inviteToken";
 
-import { signUpFn } from "../serverFunctions";
+import { isUsernameAvailableFn, signUpFn } from "../serverFunctions";
 import { PasswordValidator, UsernameValidator } from "../validators";
 
 interface SignupFormData {
@@ -22,14 +30,14 @@ interface SignupFormData {
 
 export function SignupForm() {
   const signUp = useServerFn(signUpFn);
+  const isUsernameAvailable = useServerFn(isUsernameAvailableFn);
   const navigate = useNavigate();
   const router = useRouter();
   const location = useLocation();
   const invite = () => inviteTokenFromHash(location().hash);
   const [error, setError] = createSignal<string>();
   const [accountCreated, setAccountCreated] = createSignal(false);
-  const [isUsernameValidationPending, setIsUsernameValidationPending] = createSignal(false);
-  let usernameValidationVersion = 0;
+  const [availableUsername, setAvailableUsername] = createSignal<string>();
 
   const formOpts = formOptions({
     defaultValues: {
@@ -40,6 +48,7 @@ export function SignupForm() {
   });
   const form = createForm(() => ({
     ...formOpts,
+    validationLogic: revalidateLogic(),
     onSubmit: async ({ value }) => {
       if (accountCreated()) return;
       setError(undefined);
@@ -61,14 +70,18 @@ export function SignupForm() {
         );
       }
     },
-    validators: {
-      onChange: v.object({
-        username: UsernameValidator,
-        password: PasswordValidator,
-        passwordConfirm: PasswordValidator,
-      }),
-    },
   }));
+
+  const canSubmit = form.useSelector((state) => state.canSubmit);
+  const submitHotkey = { mod: true, key: "Enter" } satisfies RegisterableHotkey;
+  createHotkey(
+    submitHotkey,
+    () => form.handleSubmit(),
+    () => ({ enabled: canSubmit() && !accountCreated() }),
+  );
+
+  const signInHotkeySequence = ["S", "I"] satisfies HotkeySequence;
+  createHotkeySequence(signInHotkeySequence, () => navigate({ to: "/sign-in", hash: invite() }));
 
   return (
     <div class="flex max-w-sm flex-col gap-4">
@@ -88,16 +101,20 @@ export function SignupForm() {
             <form.Field
               name="username"
               validators={{
-                onChangeAsync: async () => {
-                  const validationVersion = usernameValidationVersion;
-
+                onChange: UsernameValidator,
+                onChangeAsync: async ({ value, signal }) => {
+                  setAvailableUsername(undefined);
                   try {
-                    await new Promise((resolve) => setTimeout(resolve, 500));
-                    return undefined;
-                  } finally {
-                    if (validationVersion === usernameValidationVersion) {
-                      setIsUsernameValidationPending(false);
-                    }
+                    const available = await isUsernameAvailable({
+                      data: { username: value },
+                      signal,
+                    });
+                    if (signal.aborted) return undefined;
+                    if (available) setAvailableUsername(value);
+                    return available ? undefined : "Username is already taken";
+                  } catch {
+                    if (signal.aborted) return undefined;
+                    return "could not check username availability";
                   }
                 },
                 onChangeAsyncDebounceMs: 300,
@@ -107,27 +124,23 @@ export function SignupForm() {
                   label="username"
                   type="text"
                   field={field}
-                  onInput={(value) => {
-                    usernameValidationVersion += 1;
-                    setIsUsernameValidationPending(v.safeParse(UsernameValidator, value).success);
-                    field().handleChange(value);
-                  }}
-                >
-                  {/* @tanstack/form-core@1.33.5 does not restore isValidating after the first debounced run. */}
-                  <Show when={isUsernameValidationPending()}>
-                    <div role="status">Checking username...</div>
-                  </Show>
-                </FormTextField>
+                  validatingMessage="Checking username..."
+                  successMessage={
+                    availableUsername() === field().state.value ? "Username available" : undefined
+                  }
+                />
               )}
             />
 
             <form.Field
               name="password"
+              validators={{ onDynamic: PasswordValidator }}
               children={(field) => <FormTextField label="password" type="password" field={field} />}
             />
 
             <form.Field
               name="passwordConfirm"
+              validators={{ onDynamic: PasswordValidator }}
               children={(field) => (
                 <FormTextField label="confirm password" type="password" field={field} />
               )}
@@ -135,18 +148,22 @@ export function SignupForm() {
 
             <form.Subscribe
               selector={selectSubmissionState}
-              children={(state) => <FormSubmitButton label="sign up" {...state()} />}
+              children={(state) => (
+                <FormSubmitButton {...state()}>
+                  sign up · {formatForDisplay(submitHotkey).toLocaleLowerCase()}
+                </FormSubmitButton>
+              )}
             />
           </form>
         }
       >
-        <p role="status">Your account is ready. Sign in to continue.</p>
+        <p>Your account is ready. Sign in to continue.</p>
       </Show>
 
       <p class="text-muted-foreground text-sm">
         already have an account?{" "}
-        <Link class="underline" to="/sign-in" hash={invite()}>
-          login
+        <Link class={buttonVariants({ variant: "link" })} to="/sign-in" hash={invite()}>
+          sign in · {formatHotkeySequence(signInHotkeySequence).toLocaleLowerCase()}
         </Link>
       </p>
     </div>

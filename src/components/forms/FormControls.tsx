@@ -1,4 +1,5 @@
-import type { JSX } from "solid-js";
+import { LoaderCircle } from "lucide-solid";
+import { createUniqueId, Show, type JSX } from "solid-js";
 
 import { Button } from "@/components/ui/Button";
 import {
@@ -12,25 +13,31 @@ type FormTextFieldProps = {
   label: string;
   type: "text" | "password";
   autocomplete?: string;
+  validatingMessage?: string;
+  successMessage?: string;
   field: () => {
     name: string;
     state: {
       value: string;
-      meta: { isTouched: boolean; errors: readonly unknown[] };
+      meta: { isTouched: boolean; isValidating: boolean; errors: readonly unknown[] };
     };
     handleBlur: () => void;
     handleChange: (value: string) => void;
   };
-  onInput?: (value: string) => void;
-  children?: JSX.Element;
 };
 
 export function FormTextField(props: FormTextFieldProps) {
   const field = () => props.field();
+  const statusId = createUniqueId();
+  const isValidating = () => field().state.meta.isValidating;
+  const successMessage = () =>
+    field().state.meta.errors.length === 0 ? props.successMessage : undefined;
   return (
     <TextField
       validationState={
-        field().state.meta.isTouched && field().state.meta.errors.length > 0 ? "invalid" : "valid"
+        !isValidating() && field().state.meta.isTouched && field().state.meta.errors.length > 0
+          ? "invalid"
+          : "valid"
       }
     >
       <TextFieldLabel>{props.label}</TextFieldLabel>
@@ -39,11 +46,38 @@ export function FormTextField(props: FormTextFieldProps) {
         autocomplete={props.autocomplete}
         name={field().name}
         value={field().state.value}
+        aria-busy={isValidating()}
+        aria-describedby={isValidating() || successMessage() ? statusId : undefined}
         onBlur={field().handleBlur}
-        onInput={(event) => (props.onInput ?? field().handleChange)(event.currentTarget.value)}
+        onInput={(event) => field().handleChange(event.currentTarget.value)}
       />
-      {props.children}
-      <TextFieldErrorMessage>{formatErrors(field().state.meta.errors)}</TextFieldErrorMessage>
+      <div class="h-4 overflow-y-auto text-xs leading-4" aria-atomic="true">
+        <Show
+          when={isValidating()}
+          fallback={
+            <Show
+              when={successMessage()}
+              fallback={
+                <TextFieldErrorMessage class="text-xs leading-4">
+                  {formatErrors(field().state.meta.errors)}
+                </TextFieldErrorMessage>
+              }
+            >
+              <div id={statusId} class="text-green-700 dark:text-green-400">
+                {successMessage()}
+              </div>
+            </Show>
+          }
+        >
+          <div id={statusId} class="text-muted-foreground flex items-start gap-1">
+            <LoaderCircle
+              class="mt-0.5 size-3 shrink-0 animate-spin motion-reduce:animate-none"
+              aria-hidden="true"
+            />
+            <span>{props.validatingMessage ?? "Checking..."}</span>
+          </div>
+        </Show>
+      </div>
     </TextField>
   );
 }
@@ -51,11 +85,11 @@ export function FormTextField(props: FormTextFieldProps) {
 export function FormSubmitButton(props: {
   canSubmit: boolean;
   isSubmitting: boolean;
-  label: string;
+  children: JSX.Element;
 }) {
   return (
     <Button type="submit" disabled={!props.canSubmit}>
-      {props.isSubmitting ? "..." : `[ ${props.label} ]`}
+      {props.isSubmitting ? "..." : props.children}
     </Button>
   );
 }

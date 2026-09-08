@@ -1,3 +1,5 @@
+import { TanStackDevtools } from "@tanstack/solid-devtools";
+import { hotkeysDevtoolsPlugin } from "@tanstack/solid-hotkeys-devtools";
 import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from "@tanstack/solid-router";
 import { TanStackRouterDevtools } from "@tanstack/solid-router-devtools";
 import { Suspense } from "solid-js";
@@ -14,7 +16,7 @@ export const Route = createRootRouteWithContext()({
 
 function RootComponent() {
   return (
-    <html>
+    <html lang="en">
       <head>
         <HydrationScript />
         <HeadContent />
@@ -22,6 +24,7 @@ function RootComponent() {
       <body>
         <Suspense>
           <Outlet />
+          <TanStackDevtools plugins={[hotkeysDevtoolsPlugin()]} />
           <TanStackRouterDevtools />
         </Suspense>
         <Scripts />

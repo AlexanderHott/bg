@@ -8,7 +8,7 @@ import { acceptInviteFn, previewInviteFn } from "@/modules/organizations/inviteS
 import { inviteErrorMessages } from "@/modules/organizations/inviteStatus";
 import { inviteTokenFromHash } from "@/modules/organizations/inviteToken";
 
-export const Route = createFileRoute("/invite/accept")({ component: InvitePage });
+export const Route = createFileRoute("/_auth/invite/accept")({ component: InvitePage });
 
 function InvitePage() {
   return (
@@ -17,7 +17,7 @@ function InvitePage() {
         fallback={(_, reset) => (
           <>
             <p role="alert">Could not load this invite.</p>
-            <Button onClick={reset}>[ try again ]</Button>
+            <Button onClick={reset}>try again</Button>
           </>
         )}
       >
@@ -107,14 +107,14 @@ function InviteDetails() {
                     fallback={
                       <div class="flex flex-wrap gap-3">
                         <Link class={buttonVariants()} to="/sign-in" hash={token()}>
-                          [ sign in to join ]
+                          sign in to join
                         </Link>
                         <Link
                           class={buttonVariants({ variant: "secondary" })}
                           to="/sign-up"
                           hash={token()}
                         >
-                          [ create an account ]
+                          create an account
                         </Link>
                       </div>
                     }
@@ -129,7 +129,7 @@ function InviteDetails() {
                             when={invite().alreadyMember}
                             fallback={
                               <Button disabled={pending()} onClick={join}>
-                                {pending() ? "joining..." : "[ join organization ]"}
+                                {pending() ? "joining..." : "join organization"}
                               </Button>
                             }
                           >
@@ -139,11 +139,11 @@ function InviteDetails() {
                               to="/$orgSlug"
                               params={{ orgSlug: invite().slug }}
                             >
-                              [ open organization ]
+                              open organization
                             </Link>
                           </Show>
                           <Button variant="secondary" disabled={pending()} onClick={switchAccount}>
-                            [ switch account ]
+                            switch account
                           </Button>
                         </div>
                       </>

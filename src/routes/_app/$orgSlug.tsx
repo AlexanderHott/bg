@@ -38,13 +38,6 @@ function RouteComponent() {
           </Link>
           <Link
             class="text-muted-foreground hover:text-foreground"
-            to="/$orgSlug/download"
-            params={{ orgSlug: context().organization.slug }}
-          >
-            download
-          </Link>
-          <Link
-            class="text-muted-foreground hover:text-foreground"
             to="/$orgSlug/remove-background"
             params={{ orgSlug: context().organization.slug }}
           >

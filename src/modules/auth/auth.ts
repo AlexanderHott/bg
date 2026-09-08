@@ -9,6 +9,14 @@ import { createSession, validateSession } from "./lib/sessions";
 import { type SessionToken } from "./lib/sessionToken";
 import * as authSchema from "./schema";
 
+export async function isUsernameAvailable(username: string) {
+  const user = await db.query.users.findFirst({
+    where: { username },
+    columns: { id: true },
+  });
+  return user === undefined;
+}
+
 export interface SignUpOptions {
   username: string;
   password: string;

@@ -151,12 +151,6 @@ function RouteComponent() {
 
   return (
     <div class="flex flex-col gap-8">
-      <header class="flex flex-col gap-2">
-        <h1 class="text-xl font-medium">remove background</h1>
-        <p class="text-muted-foreground text-sm">
-          Remove image backgrounds and download transparent PNGs.
-        </p>
-      </header>
       <BackgroundRemovalUploader
         organizationSlug={context().organization.slug}
         onUploaded={(file) => void history.start(file)}
@@ -176,7 +170,7 @@ function RouteComponent() {
           disabled={isLoadingMore()}
           onClick={() => void loadMore()}
         >
-          {isLoadingMore() ? "loading…" : "[ load older ]"}
+          {isLoadingMore() ? "loading…" : "load older"}
         </Button>
       </Show>
     </div>

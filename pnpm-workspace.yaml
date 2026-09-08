@@ -8,6 +8,8 @@ catalog:
   vite-plus: 0.3.0
 overrides:
   vite: "catalog:"
+patchedDependencies:
+  "@tanstack/form-core@1.33.5": patches/@tanstack__form-core@1.33.5.patch
 peerDependencyRules:
   allowAny:
     - vite

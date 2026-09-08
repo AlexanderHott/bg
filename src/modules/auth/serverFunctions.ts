@@ -11,6 +11,7 @@ import * as v from "valibot";
 
 import {
   getSession,
+  isUsernameAvailable,
   issueSession,
   listActiveSessions,
   listPasskeys,
@@ -73,6 +74,10 @@ function setSessionTokenCookie(sessionToken: SessionToken) {
     sameSite: "lax",
   });
 }
+
+export const isUsernameAvailableFn = createServerFn({ method: "GET" })
+  .validator(v.object({ username: UsernameValidator }))
+  .handler(({ data }) => isUsernameAvailable(data.username));
 
 export const signUpFn = createServerFn({ method: "POST" })
   .validator(

@@ -32,7 +32,10 @@
     "@node-rs/argon2": "^2.1.0",
     "@opentelemetry/api": "1.9.1",
     "@opentelemetry/auto-instrumentations-node": "0.80.0",
+    "@tanstack/solid-devtools": "^0.8.12",
     "@tanstack/solid-form": "^1.33.5",
+    "@tanstack/solid-hotkeys": "^0.10.0",
+    "@tanstack/solid-hotkeys-devtools": "^0.7.0",
     "@tanstack/solid-router": "latest",
     "@tanstack/solid-router-devtools": "latest",
     "@tanstack/solid-start": "latest",
@@ -63,5 +66,5 @@
     "vite-plugin-solid": "^2.11.14",
     "vite-plus": "catalog:"
   },
-  "packageManager": "pnpm@11.24.0"
+  "packageManager": "pnpm@12.3.4"
 }

@@ -16,10 +16,15 @@ export function BackgroundRemovalGrid(props: {
   const [transparent, setTransparent] = createSignal(true);
   const [selected, setSelected] = createSignal<ReadonlySet<string>>(new Set());
   const [isDeleting, setIsDeleting] = createSignal(false);
+  const removalsByRequestId = createMemo(
+    () => new Map(props.removals.map((removal) => [removal.requestId, removal])),
+  );
+  const requestIds = createMemo(() => [...removalsByRequestId().keys()]);
   const selectable = createMemo(() => props.removals.filter((removal) => !removal.creation));
   const selectedItems = createMemo(() =>
     selectable().filter((removal) => selected().has(removal.requestId)),
   );
+  const hasSelection = createMemo(() => selectedItems().length > 0);
   const allSelected = () =>
     selectable().length > 0 && selectedItems().length === selectable().length;
 
@@ -121,19 +126,20 @@ export function BackgroundRemovalGrid(props: {
               disabled={isDeleting()}
               onClick={() => void deleteSelected()}
             >
-              [ delete selected ]
+              delete selected
             </Button>
           </Show>
         </div>
         <ul class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-          <For each={props.removals}>
-            {(removal) => (
+          <For each={requestIds()}>
+            {(requestId) => (
               <BackgroundRemovalTile
-                removal={removal}
+                removal={removalsByRequestId().get(requestId)!}
                 transparent={transparent()}
-                selected={selected().has(removal.requestId)}
+                selected={selected().has(requestId)}
+                showCheckbox={hasSelection()}
                 disabled={isDeleting()}
-                onSelect={() => toggle(removal.requestId)}
+                onSelect={() => toggle(requestId)}
                 onRetry={props.onRetry}
                 onDelete={props.onDelete}
               />
@@ -149,20 +155,27 @@ function BackgroundRemovalTile(props: {
   removal: BackgroundRemovalEntry;
   transparent: boolean;
   selected: boolean;
+  showCheckbox: boolean;
   disabled: boolean;
   onSelect: () => void;
   onRetry: (removal: BackgroundRemovalEntry) => Promise<void>;
   onDelete: (removal: BackgroundRemovalEntry) => Promise<void>;
 }) {
-  const image = () =>
-    props.transparent && props.removal.output ? props.removal.output : props.removal.input;
+  const [failedUrl, setFailedUrl] = createSignal<string>();
+  // Keep the preview URL while polling refreshes signatures; retry failures with the latest URL.
+  const image = createMemo<BackgroundRemovalEntry["input"]>((previous) => {
+    const next =
+      props.transparent && props.removal.output ? props.removal.output : props.removal.input;
+    const failed = failedUrl();
+    return previous?.id === next.id && previous.url && previous.url !== failed ? previous : next;
+  });
   return (
     <li
-      class="group bg-card min-w-0 overflow-hidden rounded-xl border transition-colors"
+      class="group bg-card transiton min-w-0 overflow-hidden rounded-xl border transition-all duration-150"
       classList={{ "border-primary ring-1 ring-primary": props.selected }}
     >
       <div
-        class="bg-muted/30 relative aspect-[4/3]"
+        class="bg-muted/30 relative aspect-4/3"
         classList={{ "transparency-grid": props.transparent && !!props.removal.output }}
       >
         <Show
@@ -179,9 +192,13 @@ function BackgroundRemovalTile(props: {
             alt={`${props.transparent && props.removal.output ? "Transparent" : "Original"} ${props.removal.input.name}`}
             loading="lazy"
             decoding="async"
+            onError={() => setFailedUrl(image().url)}
           />
         </Show>
-        <label class="bg-background/90 absolute top-2 left-2 flex cursor-pointer rounded-md p-1.5 shadow-sm">
+        <label
+          class="bg-background/90 absolute top-2 left-2 flex cursor-pointer rounded-md p-1.5 shadow-sm transition-[opacity,scale] duration-150 ease-out group-hover:scale-100 group-hover:opacity-100 has-[:focus-visible]:scale-100 has-[:focus-visible]:opacity-100 motion-reduce:transition-none"
+          classList={{ "scale-95 opacity-0": !props.showCheckbox }}
+        >
           <input
             type="checkbox"
             class="accent-primary size-4"
@@ -192,10 +209,7 @@ function BackgroundRemovalTile(props: {
           />
         </label>
         <Show when={!props.removal.output}>
-          <div
-            class="bg-background/90 absolute inset-x-0 bottom-0 border-t px-3 py-2 text-xs"
-            role="status"
-          >
+          <div class="bg-background/90 absolute inset-x-0 bottom-0 border-t px-3 py-2 text-xs">
             {pendingMessage(props.removal)}
           </div>
         </Show>
@@ -228,7 +242,7 @@ function BackgroundRemovalTile(props: {
           </Show>
           <Show when={props.removal.status === "failed" && canRetry(props.removal)}>
             <Button size="xs" variant="outline" onClick={() => void props.onRetry(props.removal)}>
-              [ retry ]
+              retry
             </Button>
           </Show>
           <Button

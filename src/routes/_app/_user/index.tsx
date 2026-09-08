@@ -22,7 +22,7 @@ function RouteComponent() {
           <p class="text-muted-foreground mt-1 text-sm">Choose where you want to work.</p>
         </div>
         <Link class={buttonVariants()} to="/create-organization">
-          [ create organization ]
+          create organization
         </Link>
       </div>
 
@@ -37,7 +37,7 @@ function RouteComponent() {
               </p>
             </div>
             <Link class={buttonVariants({ variant: "outline" })} to="/create-organization">
-              [ create organization ]
+              create organization
             </Link>
           </div>
         }
@@ -55,7 +55,7 @@ function RouteComponent() {
                   to="/$orgSlug"
                   params={{ orgSlug: organization.slug }}
                 >
-                  [ open ]
+                  open
                 </Link>
               </li>
             )}

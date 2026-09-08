@@ -85,7 +85,7 @@ function InvitesPage() {
           </p>
         </div>
         <Button disabled={creating()} onClick={create}>
-          {creating() ? "creating..." : "[ create invite ]"}
+          {creating() ? "creating..." : "create invite"}
         </Button>
       </div>
       <Show when={error()}>{(message) => <p role="alert">{message()}</p>}</Show>
@@ -114,7 +114,7 @@ function InvitesPage() {
                   }
                 }}
               >
-                [ copy link ]
+                copy link
               </Button>
             </div>
             <p class="text-muted-foreground text-sm">
@@ -164,7 +164,7 @@ function InvitesPage() {
                           disabled={revoking() !== undefined}
                           onClick={() => revoke(invite.id)}
                         >
-                          {revoking() === invite.id ? "revoking..." : "[ revoke ]"}
+                          {revoking() === invite.id ? "revoking..." : "revoke"}
                         </Button>
                       </Show>
                     </li>

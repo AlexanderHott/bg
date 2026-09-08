@@ -1,4 +1,12 @@
 import { createForm, formOptions } from "@tanstack/solid-form";
+import {
+  createHotkey,
+  createHotkeySequence,
+  formatForDisplay,
+  formatHotkeySequence,
+  type HotkeySequence,
+  type RegisterableHotkey,
+} from "@tanstack/solid-hotkeys";
 import { Link, useLocation, useNavigate, useRouter } from "@tanstack/solid-router";
 import { useServerFn } from "@tanstack/solid-start";
 import { createSignal, Show } from "solid-js";
@@ -63,6 +71,43 @@ export function SignInForm() {
     },
   }));
 
+  const canSubmit = form.useSelector((state) => state.canSubmit);
+  const submitHotkey = { mod: true, key: "Enter" } satisfies RegisterableHotkey;
+  createHotkey(
+    submitHotkey,
+    () => form.handleSubmit(),
+    () => ({ enabled: canSubmit() }),
+  );
+
+  const signUpHotkeySequence = ["S", "U"] satisfies HotkeySequence;
+  createHotkeySequence(signUpHotkeySequence, () => navigate({ to: "/sign-up" }));
+
+  async function signInWithPasskey() {
+    console.log("passkey");
+    setError(undefined);
+    setIsPasskeyPending(true);
+    try {
+      const { ceremonyId, options } = await beginPasskeyAuth();
+      const credentialResult = await authenticateWithPasskey(options);
+      if (!credentialResult.ok) {
+        throw new Error("Could not get a passkey credential", {
+          cause: credentialResult.error,
+        });
+      }
+      await finishPasskeyAuth({
+        data: { ceremonyId, credential: credentialResult.value },
+      });
+      await finishSignIn();
+    } catch {
+      setError("Could not sign in with your passkey. Try again or use your password.");
+    } finally {
+      setIsPasskeyPending(false);
+    }
+  }
+
+  const passkeyHotkey = { key: "P" } satisfies RegisterableHotkey;
+  createHotkey(passkeyHotkey, () => signInWithPasskey());
+
   return (
     <div class="flex max-w-sm flex-col gap-4">
       <div>sign in</div>
@@ -101,7 +146,11 @@ export function SignInForm() {
 
         <form.Subscribe
           selector={selectSubmissionState}
-          children={(state) => <FormSubmitButton label="sign in" {...state()} />}
+          children={(state) => (
+            <FormSubmitButton {...state()}>
+              sign up · {formatForDisplay(submitHotkey).toLocaleLowerCase()}
+            </FormSubmitButton>
+          )}
         />
       </form>
 
@@ -111,36 +160,18 @@ export function SignInForm() {
         type="button"
         variant="secondary"
         disabled={isPasskeyPending()}
-        onClick={async () => {
-          setError(undefined);
-          setIsPasskeyPending(true);
-          try {
-            const { ceremonyId, options } = await beginPasskeyAuth();
-            const credentialResult = await authenticateWithPasskey(options);
-            if (!credentialResult.ok) {
-              throw new Error("Could not get a passkey credential", {
-                cause: credentialResult.error,
-              });
-            }
-            await finishPasskeyAuth({
-              data: { ceremonyId, credential: credentialResult.value },
-            });
-            await finishSignIn();
-          } catch {
-            setError("Could not sign in with your passkey. Try again or use your password.");
-          } finally {
-            setIsPasskeyPending(false);
-          }
-        }}
+        onClick={signInWithPasskey}
       >
-        {isPasskeyPending() ? "..." : "[ use passkey ]"}
+        {isPasskeyPending()
+          ? "..."
+          : `use passkey · ${formatForDisplay(passkeyHotkey).toLocaleLowerCase()}`}
       </Button>
 
       <p class="text-muted-foreground text-sm">
         don't have an account?{" "}
-        <Link class="underline" to="/sign-up" hash={invite()}>
-          sign up
-        </Link>
+        <Button variant="link" as={(props) => <Link to="/sign-up" hash={invite()} {...props} />}>
+          sign up · {formatHotkeySequence(signUpHotkeySequence).toLocaleLowerCase()}
+        </Button>
       </p>
     </div>
   );
