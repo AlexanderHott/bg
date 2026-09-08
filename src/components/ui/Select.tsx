@@ -1,6 +1,5 @@
 import type { PolymorphicProps } from "@kobalte/core";
 import * as SelectPrimitive from "@kobalte/core/select";
-import * as SeparatorPrimitive from "@kobalte/core/separator";
 import { CheckIcon, ChevronDownIcon } from "lucide-solid";
 import { splitProps, type JSX, type ValidComponent } from "solid-js";
 
@@ -9,19 +8,6 @@ import { cn } from "@/lib/cn";
 // Configure popup placement, gutter, and shift on the root.
 const Select = SelectPrimitive.Root;
 const SelectFieldLabel = SelectPrimitive.Label;
-const SelectHiddenSelect = SelectPrimitive.HiddenSelect;
-
-function SelectGroup(props: JSX.IntrinsicElements["ul"]) {
-  const [local, others] = splitProps(props, ["class"]);
-  return (
-    <ul
-      role="group"
-      data-slot="select-group"
-      class={cn("scroll-my-1 p-1", local.class)}
-      {...others}
-    />
-  );
-}
 
 function SelectValue<Option>(
   props: PolymorphicProps<"span", SelectPrimitive.SelectValueProps<Option>>,
@@ -91,18 +77,6 @@ function SelectContent<Option = unknown, OptGroup = never>(
   );
 }
 
-// Use as the sectionComponent when the select has grouped options.
-function SelectLabel(props: PolymorphicProps<"li", SelectPrimitive.SelectSectionProps>) {
-  const [local, others] = splitProps(props, ["class"]);
-  return (
-    <SelectPrimitive.Section
-      data-slot="select-label"
-      class={cn("px-1.5 py-1 text-xs text-muted-foreground", local.class)}
-      {...others}
-    />
-  );
-}
-
 function SelectItem(props: PolymorphicProps<"li", SelectPrimitive.SelectItemProps>) {
   const [local, others] = splitProps(props, ["class", "children"]);
   return (
@@ -124,27 +98,4 @@ function SelectItem(props: PolymorphicProps<"li", SelectPrimitive.SelectItemProp
   );
 }
 
-function SelectSeparator(props: PolymorphicProps<"li", SeparatorPrimitive.SeparatorRootProps>) {
-  const [local, others] = splitProps(props, ["class"]);
-  return (
-    <SeparatorPrimitive.Root
-      as="li"
-      data-slot="select-separator"
-      class={cn("pointer-events-none -mx-1 my-1 h-px bg-border", local.class)}
-      {...others}
-    />
-  );
-}
-
-export {
-  Select,
-  SelectContent,
-  SelectFieldLabel,
-  SelectGroup,
-  SelectHiddenSelect,
-  SelectItem,
-  SelectLabel,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-};
+export { Select, SelectContent, SelectFieldLabel, SelectItem, SelectTrigger, SelectValue };

@@ -17,7 +17,7 @@ import {
   FormTextField,
   selectSubmissionState,
 } from "@/components/forms/FormControls";
-import { Button } from "@/components/ui/Button";
+import { Button, buttonVariants } from "@/components/ui/Button";
 import { Separator } from "@/components/ui/Separator";
 import { destinationAfterAuth, inviteTokenFromHash } from "@/modules/organizations/inviteToken";
 
@@ -80,10 +80,10 @@ export function SignInForm() {
   );
 
   const signUpHotkeySequence = ["S", "U"] satisfies HotkeySequence;
-  createHotkeySequence(signUpHotkeySequence, () => navigate({ to: "/sign-up" }));
+  createHotkeySequence(signUpHotkeySequence, () => navigate({ to: "/sign-up", hash: invite() }));
 
   async function signInWithPasskey() {
-    console.log("passkey");
+    if (isPasskeyPending()) return;
     setError(undefined);
     setIsPasskeyPending(true);
     try {
@@ -148,7 +148,7 @@ export function SignInForm() {
           selector={selectSubmissionState}
           children={(state) => (
             <FormSubmitButton {...state()}>
-              sign up · {formatForDisplay(submitHotkey).toLocaleLowerCase()}
+              sign in · {formatForDisplay(submitHotkey).toLocaleLowerCase()}
             </FormSubmitButton>
           )}
         />
@@ -169,9 +169,9 @@ export function SignInForm() {
 
       <p class="text-muted-foreground text-sm">
         don't have an account?{" "}
-        <Button variant="link" as={(props) => <Link to="/sign-up" hash={invite()} {...props} />}>
+        <Link class={buttonVariants({ variant: "link" })} to="/sign-up" hash={invite()}>
           sign up · {formatHotkeySequence(signUpHotkeySequence).toLocaleLowerCase()}
-        </Button>
+        </Link>
       </p>
     </div>
   );

@@ -56,14 +56,14 @@ test("debounces availability before submit while keeping password validation dyn
     expect(onSubmit).not.toHaveBeenCalled();
     password.handleChange("short2");
     expect(password.state.meta.errors[0]).toMatchObject({
-      message: "Password must have at least 8 characters",
+      message: "password must have at least 8 characters",
     });
 
     field.handleChange("a");
     await vi.runAllTimersAsync();
     expect(validate).toHaveBeenCalledTimes(1);
     expect(field.state.meta.errors[0]).toMatchObject({
-      message: "Username must have at least 3 characters",
+      message: "username must have at least 3 characters",
     });
 
     field.handleChange("available");
