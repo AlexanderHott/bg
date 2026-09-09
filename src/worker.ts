@@ -106,8 +106,14 @@ async function processJob(
       return;
     }
 
+    let result;
     try {
-      await adapter.removeBackground(inputPath, outputPath);
+      result = await adapter.removeBackground(inputPath, outputPath, {
+        ...(job.inputFile.thumbnailStorageKey
+          ? {}
+          : { input: join(scratch, "input-thumbnail.webp") }),
+        output: join(scratch, "output-thumbnail.webp"),
+      });
     } catch (error) {
       await failIfLeased(
         error instanceof BackgroundRemovalImageError ? error.failureCode : "inference_failed",
@@ -122,6 +128,7 @@ async function processJob(
       leaseToken,
       path: outputPath,
       sizeBytes: outputStat.size,
+      thumbnails: result.thumbnails,
     });
     if (!publication.ok && publication.error.kind === "STORAGE_FAILED") {
       await failIfLeased("storage_failed");

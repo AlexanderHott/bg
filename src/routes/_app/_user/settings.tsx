@@ -98,7 +98,7 @@ function SessionsTable() {
                     variant="destructive"
                     size="sm"
                   >
-                    [ revoke ]
+                    revoke
                   </Button>
                 </Show>
               </TableCell>
@@ -148,7 +148,7 @@ function Passkeys() {
             }
           }}
         >
-          {isRegistrationPending() ? "..." : "[ create passkey ]"}
+          {isRegistrationPending() ? "..." : "create passkey"}
         </Button>
       </CardContent>
     </Card>

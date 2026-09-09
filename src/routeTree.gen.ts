@@ -15,12 +15,12 @@ import { Route as AppUserRouteImport } from './routes/_app/_user'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/_auth/sign-up'
 import { Route as AppOrgSlugIndexRouteImport } from './routes/_app/$orgSlug/index'
-import { Route as AppOrgSlugDownloadRouteImport } from './routes/_app/$orgSlug/download'
+import { Route as AppOrgSlugInvitesRouteImport } from './routes/_app/$orgSlug/invites'
 import { Route as AppOrgSlugRemoveBackgroundRouteImport } from './routes/_app/$orgSlug/remove-background'
-import { Route as AppOrgSlugSecretRouteImport } from './routes/_app/$orgSlug/secret'
 import { Route as AppUserIndexRouteImport } from './routes/_app/_user/index'
 import { Route as AppUserCreateOrganizationRouteImport } from './routes/_app/_user/create-organization'
 import { Route as AppUserSettingsRouteImport } from './routes/_app/_user/settings'
+import { Route as AuthInviteAcceptRouteImport } from './routes/_auth/invite/accept'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -50,9 +50,9 @@ const AppOrgSlugIndexRoute = AppOrgSlugIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppOrgSlugRoute,
 } as any)
-const AppOrgSlugDownloadRoute = AppOrgSlugDownloadRouteImport.update({
-  id: '/download',
-  path: '/download',
+const AppOrgSlugInvitesRoute = AppOrgSlugInvitesRouteImport.update({
+  id: '/invites',
+  path: '/invites',
   getParentRoute: () => AppOrgSlugRoute,
 } as any)
 const AppOrgSlugRemoveBackgroundRoute =
@@ -61,11 +61,6 @@ const AppOrgSlugRemoveBackgroundRoute =
     path: '/remove-background',
     getParentRoute: () => AppOrgSlugRoute,
   } as any)
-const AppOrgSlugSecretRoute = AppOrgSlugSecretRouteImport.update({
-  id: '/secret',
-  path: '/secret',
-  getParentRoute: () => AppOrgSlugRoute,
-} as any)
 const AppUserIndexRoute = AppUserIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -82,28 +77,33 @@ const AppUserSettingsRoute = AppUserSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AppUserRoute,
 } as any)
+const AuthInviteAcceptRoute = AuthInviteAcceptRouteImport.update({
+  id: '/_auth/invite/accept',
+  path: '/invite/accept',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppUserIndexRoute
   '/$orgSlug': typeof AppOrgSlugRouteWithChildren
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
-  '/$orgSlug/download': typeof AppOrgSlugDownloadRoute
+  '/$orgSlug/invites': typeof AppOrgSlugInvitesRoute
   '/$orgSlug/remove-background': typeof AppOrgSlugRemoveBackgroundRoute
-  '/$orgSlug/secret': typeof AppOrgSlugSecretRoute
   '/create-organization': typeof AppUserCreateOrganizationRoute
   '/settings': typeof AppUserSettingsRoute
+  '/invite/accept': typeof AuthInviteAcceptRoute
   '/$orgSlug/': typeof AppOrgSlugIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppUserIndexRoute
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
-  '/$orgSlug/download': typeof AppOrgSlugDownloadRoute
+  '/$orgSlug/invites': typeof AppOrgSlugInvitesRoute
   '/$orgSlug/remove-background': typeof AppOrgSlugRemoveBackgroundRoute
-  '/$orgSlug/secret': typeof AppOrgSlugSecretRoute
   '/create-organization': typeof AppUserCreateOrganizationRoute
   '/settings': typeof AppUserSettingsRoute
+  '/invite/accept': typeof AuthInviteAcceptRoute
   '/$orgSlug': typeof AppOrgSlugIndexRoute
 }
 export interface FileRoutesById {
@@ -113,11 +113,11 @@ export interface FileRoutesById {
   '/_app/_user': typeof AppUserRouteWithChildren
   '/_auth/sign-in': typeof AuthSignInRoute
   '/_auth/sign-up': typeof AuthSignUpRoute
-  '/_app/$orgSlug/download': typeof AppOrgSlugDownloadRoute
+  '/_app/$orgSlug/invites': typeof AppOrgSlugInvitesRoute
   '/_app/$orgSlug/remove-background': typeof AppOrgSlugRemoveBackgroundRoute
-  '/_app/$orgSlug/secret': typeof AppOrgSlugSecretRoute
   '/_app/_user/create-organization': typeof AppUserCreateOrganizationRoute
   '/_app/_user/settings': typeof AppUserSettingsRoute
+  '/_auth/invite/accept': typeof AuthInviteAcceptRoute
   '/_app/$orgSlug/': typeof AppOrgSlugIndexRoute
   '/_app/_user/': typeof AppUserIndexRoute
 }
@@ -128,22 +128,22 @@ export interface FileRouteTypes {
     | '/$orgSlug'
     | '/sign-in'
     | '/sign-up'
-    | '/$orgSlug/download'
+    | '/$orgSlug/invites'
     | '/$orgSlug/remove-background'
-    | '/$orgSlug/secret'
     | '/create-organization'
     | '/settings'
+    | '/invite/accept'
     | '/$orgSlug/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/sign-in'
     | '/sign-up'
-    | '/$orgSlug/download'
+    | '/$orgSlug/invites'
     | '/$orgSlug/remove-background'
-    | '/$orgSlug/secret'
     | '/create-organization'
     | '/settings'
+    | '/invite/accept'
     | '/$orgSlug'
   id:
     | '__root__'
@@ -152,11 +152,11 @@ export interface FileRouteTypes {
     | '/_app/_user'
     | '/_auth/sign-in'
     | '/_auth/sign-up'
-    | '/_app/$orgSlug/download'
+    | '/_app/$orgSlug/invites'
     | '/_app/$orgSlug/remove-background'
-    | '/_app/$orgSlug/secret'
     | '/_app/_user/create-organization'
     | '/_app/_user/settings'
+    | '/_auth/invite/accept'
     | '/_app/$orgSlug/'
     | '/_app/_user/'
   fileRoutesById: FileRoutesById
@@ -165,6 +165,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AuthSignInRoute: typeof AuthSignInRoute
   AuthSignUpRoute: typeof AuthSignUpRoute
+  AuthInviteAcceptRoute: typeof AuthInviteAcceptRoute
 }
 
 declare module '@tanstack/solid-router' {
@@ -211,11 +212,11 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof AppOrgSlugIndexRouteImport
       parentRoute: typeof AppOrgSlugRoute
     }
-    '/_app/$orgSlug/download': {
-      id: '/_app/$orgSlug/download'
-      path: '/download'
-      fullPath: '/$orgSlug/download'
-      preLoaderRoute: typeof AppOrgSlugDownloadRouteImport
+    '/_app/$orgSlug/invites': {
+      id: '/_app/$orgSlug/invites'
+      path: '/invites'
+      fullPath: '/$orgSlug/invites'
+      preLoaderRoute: typeof AppOrgSlugInvitesRouteImport
       parentRoute: typeof AppOrgSlugRoute
     }
     '/_app/$orgSlug/remove-background': {
@@ -223,13 +224,6 @@ declare module '@tanstack/solid-router' {
       path: '/remove-background'
       fullPath: '/$orgSlug/remove-background'
       preLoaderRoute: typeof AppOrgSlugRemoveBackgroundRouteImport
-      parentRoute: typeof AppOrgSlugRoute
-    }
-    '/_app/$orgSlug/secret': {
-      id: '/_app/$orgSlug/secret'
-      path: '/secret'
-      fullPath: '/$orgSlug/secret'
-      preLoaderRoute: typeof AppOrgSlugSecretRouteImport
       parentRoute: typeof AppOrgSlugRoute
     }
     '/_app/_user/': {
@@ -253,20 +247,25 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof AppUserSettingsRouteImport
       parentRoute: typeof AppUserRoute
     }
+    '/_auth/invite/accept': {
+      id: '/_auth/invite/accept'
+      path: '/invite/accept'
+      fullPath: '/invite/accept'
+      preLoaderRoute: typeof AuthInviteAcceptRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface AppOrgSlugRouteChildren {
-  AppOrgSlugDownloadRoute: typeof AppOrgSlugDownloadRoute
+  AppOrgSlugInvitesRoute: typeof AppOrgSlugInvitesRoute
   AppOrgSlugRemoveBackgroundRoute: typeof AppOrgSlugRemoveBackgroundRoute
-  AppOrgSlugSecretRoute: typeof AppOrgSlugSecretRoute
   AppOrgSlugIndexRoute: typeof AppOrgSlugIndexRoute
 }
 
 const AppOrgSlugRouteChildren: AppOrgSlugRouteChildren = {
-  AppOrgSlugDownloadRoute: AppOrgSlugDownloadRoute,
+  AppOrgSlugInvitesRoute: AppOrgSlugInvitesRoute,
   AppOrgSlugRemoveBackgroundRoute: AppOrgSlugRemoveBackgroundRoute,
-  AppOrgSlugSecretRoute: AppOrgSlugSecretRoute,
   AppOrgSlugIndexRoute: AppOrgSlugIndexRoute,
 }
 
@@ -305,16 +304,18 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AuthSignInRoute: AuthSignInRoute,
   AuthSignUpRoute: AuthSignUpRoute,
+  AuthInviteAcceptRoute: AuthInviteAcceptRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
 
 import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/solid-start'
+import type { startInstance } from './start.ts'
 declare module '@tanstack/solid-start' {
   interface Register {
     ssr: true
     router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
   }
 }

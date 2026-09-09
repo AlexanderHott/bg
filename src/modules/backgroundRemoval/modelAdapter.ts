@@ -5,6 +5,8 @@ import { stat } from "node:fs/promises";
 import { InferenceSession, Tensor } from "onnxruntime-node";
 import sharp from "sharp";
 
+import { writeImageThumbnail } from "@/modules/files/thumbnailAdapter";
+
 import {
   MAX_BACKGROUND_REMOVAL_INPUT_PIXELS,
   MAX_BACKGROUND_REMOVAL_INPUT_SIDE,
@@ -58,7 +60,11 @@ export async function createBiRefNetAdapter(modelPath: string) {
       );
     },
 
-    async removeBackground(inputPath: string, outputPath: string) {
+    async removeBackground(
+      inputPath: string,
+      outputPath: string,
+      thumbnailPaths?: { input?: string; output: string },
+    ) {
       const inputStat = await stat(inputPath);
       if (inputStat.size < 1) throw new BackgroundRemovalImageError("invalid_image");
       if (inputStat.size > MAX_BACKGROUND_REMOVAL_INPUT_SIZE_BYTES) {
@@ -106,7 +112,20 @@ export async function createBiRefNetAdapter(modelPath: string) {
         throw new BackgroundRemovalImageError("decode_failed", { cause: error });
       }
 
-      return { width: source.info.width, height: source.info.height };
+      const dimensions = { width: source.info.width, height: source.info.height };
+      // Encode sequentially to limit peak memory while the full-size pixels are retained.
+      const inputThumbnail = thumbnailPaths?.input
+        ? await writeImageThumbnail({
+            ...dimensions,
+            data: source.data,
+            path: thumbnailPaths.input,
+          })
+        : undefined;
+      const outputThumbnail = thumbnailPaths
+        ? await writeImageThumbnail({ ...dimensions, data: output, path: thumbnailPaths.output })
+        : undefined;
+
+      return { ...dimensions, thumbnails: { input: inputThumbnail, output: outputThumbnail } };
     },
   };
 }

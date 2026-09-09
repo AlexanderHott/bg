@@ -31,6 +31,7 @@ export const files = pgTable(
     expectedSizeBytes: integer("expected_size_bytes").notNull(),
     sizeBytes: integer("size_bytes"),
     storageKey: text("storage_key").notNull().unique(),
+    thumbnailStorageKey: text("thumbnail_storage_key").unique(),
     createdAt: timestamp("created_at", timestampConfig).notNull().defaultNow(),
     readyAt: timestamp("ready_at", timestampConfig),
   },

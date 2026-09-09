@@ -9,6 +9,14 @@ import { createSession, validateSession } from "./lib/sessions";
 import { type SessionToken } from "./lib/sessionToken";
 import * as authSchema from "./schema";
 
+export async function isUsernameAvailable(username: string) {
+  const user = await db.query.users.findFirst({
+    where: { username },
+    columns: { id: true },
+  });
+  return user === undefined;
+}
+
 export interface SignUpOptions {
   username: string;
   password: string;
@@ -117,8 +125,9 @@ export async function getSession(options: GetSessionOptions) {
   options.signal?.throwIfAborted();
   const session = await db.query.sessions.findFirst({
     where: { id: options.sessionToken.id },
+    with: { user: { columns: { username: true } } },
   });
-  if (!session) {
+  if (!session?.user) {
     return undefined;
   }
 
@@ -135,6 +144,7 @@ export async function getSession(options: GetSessionOptions) {
   return {
     sessionId: session.id,
     userId: session.userId,
+    username: session.user.username,
   };
 }
 

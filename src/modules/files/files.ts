@@ -31,6 +31,7 @@ export interface ReadyFile {
 
 export interface ReadyImage extends ReadyFile {
   url: string;
+  thumbnailUrl?: string;
 }
 
 export async function getReadyImages(options: {
@@ -735,7 +736,21 @@ async function toReadyImage(file: fileSchema.File): Promise<ReadyImage | undefin
     return storageFailure(urlResult.error);
   }
 
-  return { ...readyFile, url: urlResult.value };
+  const thumbnailResult = file.thumbnailStorageKey
+    ? await minio.signOpenObject({ key: file.thumbnailStorageKey })
+    : undefined;
+  if (thumbnailResult && !thumbnailResult.ok) {
+    console.warn("Could not sign image thumbnail", {
+      fileId: file.id,
+      error: thumbnailResult.error,
+    });
+  }
+
+  return {
+    ...readyFile,
+    url: urlResult.value,
+    ...(thumbnailResult?.ok ? { thumbnailUrl: thumbnailResult.value } : {}),
+  };
 }
 
 function getPartCount(sizeBytes: number, partSizeBytes: number) {

@@ -22,6 +22,7 @@ const inputRequestId = randomUUIDv7();
 const removalRequestId = randomUUIDv7();
 const inputStorageKey = `tests/${organizationId}/input.png`;
 let outputStorageKey: string | undefined;
+const thumbnailStorageKeys: Array<string> = [];
 let scratch: string;
 
 describe.runIf(runWorkerTest)("background-removal worker", () => {
@@ -76,10 +77,11 @@ describe.runIf(runWorkerTest)("background-removal worker", () => {
       .where(eq(organizationSchema.organizations.id, organizationId));
     await minio.deleteObject({ key: inputStorageKey });
     if (outputStorageKey) await minio.deleteObject({ key: outputStorageKey });
+    for (const key of thumbnailStorageKeys) await minio.deleteObject({ key });
     if (scratch) await rm(scratch, { recursive: true, force: true });
   });
 
-  test("publishes an oriented RGBA PNG at the input dimensions", async () => {
+  test("publishes the full-resolution PNG and both WebP thumbnails", async () => {
     const created = await createBackgroundRemoval({
       organizationId,
       requestId: removalRequestId,
@@ -115,6 +117,27 @@ describe.runIf(runWorkerTest)("background-removal worker", () => {
       height: 32,
       hasAlpha: true,
     });
+
+    const [inputFile] = await db
+      .select()
+      .from(fileSchema.files)
+      .where(eq(fileSchema.files.id, inputFileId))
+      .limit(1);
+    if (!inputFile) throw new Error("Input file disappeared");
+    for (const file of [inputFile, outputFile]) {
+      expect(file.thumbnailStorageKey).not.toBeNull();
+      if (!file.thumbnailStorageKey) throw new Error("Worker did not publish thumbnail");
+      thumbnailStorageKeys.push(file.thumbnailStorageKey);
+      const path = join(scratch, `${file.id}.webp`);
+      const thumbnail = await minio.downloadObjectToFile({ key: file.thumbnailStorageKey, path });
+      expect(thumbnail.ok).toBe(true);
+      expect(await sharp(path).metadata()).toMatchObject({
+        format: "webp",
+        width: 48,
+        height: 32,
+        hasAlpha: true,
+      });
+    }
   }, 120_000);
 });
 

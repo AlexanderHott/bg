@@ -9,7 +9,16 @@ import {
 } from "@tanstack/solid-start/server";
 import * as v from "valibot";
 
-import { getSession, listActiveSessions, listPasskeys, signIn, signOut, signUp } from "./auth";
+import {
+  getSession,
+  isUsernameAvailable,
+  issueSession,
+  listActiveSessions,
+  listPasskeys,
+  signIn,
+  signOut,
+  signUp,
+} from "./auth";
 import {
   beginPasskeyRegistration,
   beginPasskeySignIn,
@@ -66,6 +75,10 @@ function setSessionTokenCookie(sessionToken: SessionToken) {
   });
 }
 
+export const isUsernameAvailableFn = createServerFn({ method: "GET" })
+  .validator(v.object({ username: UsernameValidator }))
+  .handler(({ data }) => isUsernameAvailable(data.username));
+
 export const signUpFn = createServerFn({ method: "POST" })
   .validator(
     v.object({
@@ -78,13 +91,21 @@ export const signUpFn = createServerFn({ method: "POST" })
     const userAgent = getRequestHeader("User-Agent");
     const ip = getRequestIP();
 
-    await signUp({
+    const user = await signUp({
       username: data.username,
       password: data.password,
       userAgent,
       ip,
       signal,
     });
+
+    try {
+      const session = await issueSession({ userId: user.id, userAgent, ip, signal });
+      setSessionTokenCookie(session.sessionToken);
+      return { signedIn: true };
+    } catch {
+      return { signedIn: false };
+    }
   });
 
 export const signInFn = createServerFn({ method: "POST" })
@@ -223,10 +244,4 @@ export const finishPasskeyAuthFn = createServerFn({ method: "POST" })
 
     setSessionTokenCookie(result.value.sessionToken);
     return { userId: result.value.userId, sessionId: result.value.sessionId };
-  });
-
-export const getSecretDataFn = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
-  .handler(async ({ context: { userId, sessionId } }) => {
-    return `${sessionId} - ${userId} - secret data`;
   });

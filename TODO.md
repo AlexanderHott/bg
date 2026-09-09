@@ -3,7 +3,7 @@
 - [ ] seed database
 - [x] add otel <https://tanstack.com/start/latest/docs/framework/solid/guide/observability>
 - [x] fix passkeys
-- [ ] invites
+- [x] invites
 - [ ] improve auth + organization forms
   - [ ] change onChange validator to the dynamic one (onBlur first, then on dirty)
   - [ ] make async username validator better

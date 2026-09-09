@@ -90,3 +90,22 @@ test("treats an already deleted request as a successful deletion", async () => {
   await history.remove(removal);
   expect(history.items()).toEqual([]);
 });
+
+test("bulk deletion hides every selected image immediately and restores only failures", async () => {
+  const second = { ...removal, id: "second-id", requestId: "second-request" };
+  const { history, deleteRemoval, onError } = setup([removal, second]);
+  const firstResponse = Promise.withResolvers<ReturnType<typeof ok<undefined>>>();
+  const secondResponse = Promise.withResolvers<ReturnType<typeof ok<undefined>>>();
+  deleteRemoval
+    .mockReturnValueOnce(firstResponse.promise)
+    .mockReturnValueOnce(secondResponse.promise);
+  const deleting = Promise.all([history.remove(removal), history.remove(second)]);
+  expect(history.items()).toEqual([]);
+  history.merge({ ...removal, status: "processing" });
+  expect(history.items()).toEqual([]);
+  firstResponse.resolve(ok(undefined));
+  secondResponse.reject(new Error("offline"));
+  await deleting;
+  expect(history.items()).toEqual([second]);
+  expect(onError).toHaveBeenLastCalledWith("Could not delete this request. Try again.");
+});

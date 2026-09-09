@@ -7,7 +7,6 @@
     "dev:worker": "tsx watch src/worker.ts",
     "generate-routes": "tsr generate",
     "build": "vp run build:web && vp run build:worker",
-    "benchmark:background-removal": "node --expose-gc --import tsx benchmarks/background-removal.ts",
     "build:web": "vp build",
     "build:worker": "vp build --config vite.worker.config.ts",
     "test": "vp test",
@@ -32,7 +31,10 @@
     "@node-rs/argon2": "^2.1.0",
     "@opentelemetry/api": "1.9.1",
     "@opentelemetry/auto-instrumentations-node": "0.80.0",
+    "@tanstack/solid-devtools": "^0.8.12",
     "@tanstack/solid-form": "^1.33.5",
+    "@tanstack/solid-hotkeys": "^0.10.0",
+    "@tanstack/solid-hotkeys-devtools": "^0.7.0",
     "@tanstack/solid-router": "latest",
     "@tanstack/solid-router-devtools": "latest",
     "@tanstack/solid-start": "latest",
@@ -40,6 +42,7 @@
     "dotenv": "^17.4.2",
     "drizzle-orm": "1.0.0-rc.4",
     "import-in-the-middle": "3.4.0",
+    "lucide-solid": "^1.41.0",
     "onnxruntime-node": "^1.29.0",
     "pg": "^8.23.0",
     "sharp": "^0.35.4",
@@ -62,5 +65,5 @@
     "vite-plugin-solid": "^2.11.14",
     "vite-plus": "catalog:"
   },
-  "packageManager": "pnpm@11.24.0"
+  "packageManager": "pnpm@12.3.4"
 }

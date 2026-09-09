@@ -1,4 +1,6 @@
+import { sql } from "drizzle-orm";
 import {
+  check,
   index,
   pgTable,
   primaryKey,
@@ -36,5 +38,40 @@ export const memberships = pgTable(
   (table) => [
     primaryKey({ columns: [table.organizationId, table.userId] }),
     index("idx_memberships_user_id").on(table.userId),
+  ],
+);
+
+export const organizationInvites = pgTable(
+  "organization_invites",
+  {
+    id: uuid("id").notNull().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    secretHash: text("secret_hash").notNull(),
+    createdByUserId: uuid("created_by_user_id").references(() => authSchema.users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", timestampConfig).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", timestampConfig).notNull(),
+    acceptedAt: timestamp("accepted_at", timestampConfig),
+    acceptedByUserId: uuid("accepted_by_user_id").references(() => authSchema.users.id, {
+      onDelete: "set null",
+    }),
+    revokedAt: timestamp("revoked_at", timestampConfig),
+  },
+  (table) => [
+    index("idx_organization_invites_organization_created").on(
+      table.organizationId,
+      table.createdAt,
+    ),
+    check(
+      "organization_invites_terminal_state",
+      sql`${table.acceptedAt} IS NULL OR ${table.revokedAt} IS NULL`,
+    ),
+    check(
+      "organization_invites_acceptance",
+      sql`${table.acceptedByUserId} IS NULL OR ${table.acceptedAt} IS NOT NULL`,
+    ),
   ],
 );

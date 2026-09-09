@@ -29,7 +29,7 @@ function CardHeader(props: JSX.IntrinsicElements["div"]) {
     <div
       data-slot="card-header"
       class={cn(
-        "group/card-header @container/card-header grid auto-rows-min items-start gap-1 rounded-t-xl px-(--card-spacing) has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-(--card-spacing)",
+        "group/card-header @container/card-header grid auto-rows-min items-start gap-1 rounded-t-xl px-(--card-spacing) [.border-b]:pb-(--card-spacing)",
         local.class,
       )}
       {...others}
@@ -52,18 +52,6 @@ function CardTitle(props: JSX.IntrinsicElements["div"]) {
   );
 }
 
-function CardDescription(props: JSX.IntrinsicElements["div"]) {
-  const [local, others] = splitProps(props, ["class"]);
-
-  return (
-    <div
-      data-slot="card-description"
-      class={cn("text-sm text-muted-foreground", local.class)}
-      {...others}
-    />
-  );
-}
-
 function CardContent(props: JSX.IntrinsicElements["div"]) {
   const [local, others] = splitProps(props, ["class"]);
 
@@ -72,4 +60,4 @@ function CardContent(props: JSX.IntrinsicElements["div"]) {
   );
 }
 
-export { Card, CardHeader, CardTitle, CardDescription, CardContent };
+export { Card, CardHeader, CardTitle, CardContent };
