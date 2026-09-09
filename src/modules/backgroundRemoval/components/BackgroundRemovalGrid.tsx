@@ -1,5 +1,5 @@
 import { Switch } from "@kobalte/core/switch";
-import { Download } from "lucide-solid";
+import { Download, TrashIcon } from "lucide-solid";
 import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 
 import { Button } from "@/components/ui/Button";
@@ -249,13 +249,13 @@ function BackgroundRemovalTile(props: {
           </Show>
           <Button
             class="ml-auto"
-            size="xs"
-            variant="ghost"
+            size="icon"
+            variant="destructive"
             disabled={props.disabled || !!props.removal.creation}
             aria-label={`Delete ${props.removal.input.name}`}
             onClick={() => void props.onDelete(props.removal)}
           >
-            delete
+            <TrashIcon />
           </Button>
         </div>
       </div>

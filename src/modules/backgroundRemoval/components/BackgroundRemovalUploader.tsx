@@ -1,5 +1,6 @@
 import { Dialog } from "@kobalte/core/dialog";
-import { CloudUpload } from "lucide-solid";
+import { createHotkey, formatForDisplay, type RegisterableHotkey } from "@tanstack/solid-hotkeys";
+import { CloudUpload, X } from "lucide-solid";
 import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 
 import { Button } from "@/components/ui/Button";
@@ -48,6 +49,21 @@ export function BackgroundRemovalUploader(props: {
     await batch.start();
     if (batch.entries().length > 0 && pendingCount() === 0) close();
   }
+
+  const uploadHotkey = { mod: true, key: "Enter" } satisfies RegisterableHotkey;
+  const addMoreHotkey = { mod: true, key: "O" } satisfies RegisterableHotkey;
+  createHotkey(
+    uploadHotkey,
+    () => void upload(),
+    () => ({
+      enabled: open() && !batch.isUploading() && pendingCount() > 0,
+      ignoreInputs: false,
+    }),
+  );
+  createHotkey(addMoreHotkey, chooseFiles, () => ({
+    enabled: open() && !batch.isUploading(),
+    ignoreInputs: false,
+  }));
 
   onMount(() => {
     const controller = new AbortController();
@@ -124,15 +140,16 @@ export function BackgroundRemovalUploader(props: {
 
   return (
     <>
-      <div class="bg-muted/20 flex flex-col items-center justify-center rounded-xl border border-dashed px-6 py-10 text-center">
+      <div class="bg-muted/20 flex flex-col items-center justify-center gap-4 rounded-xl border border-dashed px-6 py-10 text-center">
         <CloudUpload class="text-muted-foreground size-12" aria-hidden="true" />
-        <p class="mt-4 text-sm font-medium">drop or paste images anywhere</p>
-        <p class="text-muted-foreground mt-1 text-xs">jpeg, png, webp, avif · up to 50 MiB each</p>
+        <div>
+          <p class="text-sm font-medium">drop or paste images anywhere</p>
+          <p class="text-muted-foreground text-xs">jpeg, png, webp, avif · up to 50 MiB each</p>
+        </div>
         <Button
           ref={(element) => {
             chooseButton = element;
           }}
-          class="mt-4 h-10 min-w-36"
           disabled={batch.isUploading()}
           onClick={chooseFiles}
         >
@@ -189,21 +206,16 @@ export function BackgroundRemovalUploader(props: {
               }}
             >
               <div class="flex shrink-0 items-start justify-between gap-4 border-b p-4 sm:p-5">
-                <div>
-                  <Dialog.Title class="font-medium">
-                    confirm upload ({batch.entries().length}{" "}
-                    {batch.entries().length === 1 ? "image" : "images"})
-                  </Dialog.Title>
-                  <Dialog.Description class="text-muted-foreground mt-1 text-xs">
-                    Background removal starts as each image finishes uploading.
-                  </Dialog.Description>
-                </div>
+                <Dialog.Title class="font-medium">
+                  confirm upload ({batch.entries().length}{" "}
+                  {batch.entries().length === 1 ? "image" : "images"})
+                </Dialog.Title>
                 <Dialog.CloseButton
-                  class="hover:bg-muted focus-visible:ring-ring flex size-8 shrink-0 items-center justify-center rounded-lg border text-lg focus-visible:ring-2 disabled:opacity-40"
+                  class="hover:bg-muted focus-visible:ring-ring flex size-8 shrink-0 items-center justify-center rounded-lg border focus-visible:ring-2 disabled:opacity-40"
                   disabled={batch.isUploading()}
                   aria-label="Close upload dialog"
                 >
-                  ×
+                  <X class="size-4" aria-hidden="true" />
                 </Dialog.CloseButton>
               </div>
               <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5">
@@ -237,7 +249,7 @@ export function BackgroundRemovalUploader(props: {
                                   aria-label={`Remove ${entry().file.name} from upload`}
                                   onClick={() => batch.remove(requestId)}
                                 >
-                                  ×
+                                  <X class="size-4" aria-hidden="true" />
                                 </Button>
                               </Show>
                             </div>
@@ -283,7 +295,7 @@ export function BackgroundRemovalUploader(props: {
               </div>
               <div class="bg-muted/20 flex shrink-0 flex-col gap-3 border-t p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
                 <Button variant="ghost" disabled={batch.isUploading()} onClick={chooseFiles}>
-                  + add more
+                  + add more · {formatForDisplay(addMoreHotkey).toLocaleLowerCase()}
                 </Button>
                 <div class="flex gap-2 [&>button]:flex-1 sm:[&>button]:flex-none">
                   <Show
@@ -291,10 +303,11 @@ export function BackgroundRemovalUploader(props: {
                     fallback={
                       <>
                         <Button variant="outline" onClick={close}>
-                          cancel
+                          cancel · esc
                         </Button>
                         <Button disabled={pendingCount() === 0} onClick={() => void upload()}>
-                          upload {pendingCount()} {pendingCount() === 1 ? "image" : "images"}
+                          upload {pendingCount()} {pendingCount() === 1 ? "image" : "images"} ·{" "}
+                          {formatForDisplay(uploadHotkey).toLocaleLowerCase()}
                         </Button>
                       </>
                     }
@@ -331,7 +344,7 @@ function UploadPreview(props: { file: File }) {
       }
     >
       <img
-        class="absolute inset-0 h-full w-full object-contain p-2"
+        class="absolute inset-0 h-full w-full object-contain"
         src={url()}
         alt={`Preview of ${props.file.name}`}
         decoding="async"
