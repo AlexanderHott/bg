@@ -7,6 +7,7 @@ WORKDIR /app
 
 # Install dependencies first so this layer is cached across source changes.
 COPY --chown=vp:vp package.json pnpm-lock.yaml pnpm-workspace.yaml .node-version* .npmrc ./
+COPY --chown=vp:vp patches/ ./patches/
 RUN ONNXRUNTIME_NODE_INSTALL=skip vp install --frozen-lockfile
 
 # Build. vp reads .node-version and provisions that exact Node.js automatically.
@@ -23,6 +24,7 @@ RUN cp "$(vp env which node | head -1)" /tmp/node
 FROM ghcr.io/voidzero-dev/vite-plus:latest AS deps
 WORKDIR /app
 COPY --chown=vp:vp package.json pnpm-lock.yaml pnpm-workspace.yaml .node-version* .npmrc ./
+COPY --chown=vp:vp patches/ ./patches/
 RUN ONNXRUNTIME_NODE_INSTALL=skip vp install --frozen-lockfile --prod
 
 # --- runtime stage: small, glibc, no vp ---
