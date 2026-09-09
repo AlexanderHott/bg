@@ -53,30 +53,79 @@ export function BackgroundRemovalGrid(props: {
 
   return (
     <section class="flex flex-col gap-5" aria-label="Background removal images">
-      <div class="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
-        <div class="flex items-baseline gap-3">
-          <h2 class="font-medium">your images</h2>
-          <span class="text-muted-foreground text-xs">{props.removals.length} loaded</span>
-        </div>
-        <Switch
-          class="group/preview flex items-center gap-3 text-xs"
-          checked={transparent()}
-          onChange={setTransparent}
-        >
-          <span classList={{ "text-muted-foreground": transparent() }}>original</span>
-          <Switch.Input aria-label="Show transparent images" />
-          <Switch.Control class="bg-muted data-checked:bg-primary group-focus-within/preview:ring-ring inline-flex h-6 w-10 cursor-pointer items-center rounded-full border p-0.5 group-focus-within/preview:ring-2">
-            <Switch.Thumb class="bg-background size-4 rounded-full shadow-sm transition-transform data-checked:translate-x-4" />
-          </Switch.Control>
-          <Switch.Label
-            class="cursor-pointer"
-            classList={{ "text-muted-foreground": !transparent() }}
+      <div class="bg-background sticky top-[calc(var(--app-navbar-height,0px)+var(--org-navbar-height,0px))] z-10 -my-4 flex flex-col gap-5 py-4">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
+          <div class="flex items-baseline gap-3">
+            <h2 class="font-medium">your images</h2>
+            <span class="text-muted-foreground text-xs">{props.removals.length} loaded</span>
+          </div>
+          <Switch
+            class="group/preview flex items-center gap-3 text-xs"
+            checked={transparent()}
+            onChange={setTransparent}
           >
-            transparent
-          </Switch.Label>
-        </Switch>
-      </div>
+            <span classList={{ "text-muted-foreground": transparent() }}>original</span>
+            <Switch.Input aria-label="Show transparent images" />
+            <Switch.Control class="bg-muted data-checked:bg-primary group-focus-within/preview:ring-ring inline-flex h-6 w-10 cursor-pointer items-center rounded-full border p-0.5 group-focus-within/preview:ring-2">
+              <Switch.Thumb class="bg-background size-4 rounded-full shadow-sm transition-transform data-checked:translate-x-4" />
+            </Switch.Control>
+            <Switch.Label
+              class="cursor-pointer"
+              classList={{ "text-muted-foreground": !transparent() }}
+            >
+              transparent
+            </Switch.Label>
+          </Switch>
+        </div>
 
+        <Show when={props.removals.length > 0 || isDeleting()}>
+          <div class="flex min-h-8 flex-wrap items-center gap-3 text-xs">
+            <label class="flex cursor-pointer items-center gap-2">
+              <input
+                type="checkbox"
+                class="accent-primary size-4"
+                checked={allSelected()}
+                ref={(input) =>
+                  createEffect(() => {
+                    input.indeterminate = selectedItems().length > 0 && !allSelected();
+                  })
+                }
+                disabled={isDeleting() || selectable().length === 0}
+                onChange={() =>
+                  setSelected(
+                    allSelected()
+                      ? new Set<string>()
+                      : new Set(selectable().map((removal) => removal.requestId)),
+                  )
+                }
+              />
+              select all loaded
+            </label>
+            <Show when={selectedItems().length > 0 || isDeleting()}>
+              <span class="text-muted-foreground" role="status">
+                {isDeleting() ? "deleting…" : `${selectedItems().length} selected`}
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={isDeleting()}
+                onClick={() => setSelected(new Set())}
+              >
+                clear
+              </Button>
+              <Button
+                class="ml-auto"
+                size="sm"
+                variant="destructive"
+                disabled={isDeleting()}
+                onClick={() => void deleteSelected()}
+              >
+                delete selected
+              </Button>
+            </Show>
+          </div>
+        </Show>
+      </div>
       <Show
         when={props.removals.length > 0 || isDeleting()}
         fallback={
@@ -86,51 +135,6 @@ export function BackgroundRemovalGrid(props: {
           </div>
         }
       >
-        <div class="flex min-h-8 flex-wrap items-center gap-3 text-xs">
-          <label class="flex cursor-pointer items-center gap-2">
-            <input
-              type="checkbox"
-              class="accent-primary size-4"
-              checked={allSelected()}
-              ref={(input) =>
-                createEffect(() => {
-                  input.indeterminate = selectedItems().length > 0 && !allSelected();
-                })
-              }
-              disabled={isDeleting() || selectable().length === 0}
-              onChange={() =>
-                setSelected(
-                  allSelected()
-                    ? new Set<string>()
-                    : new Set(selectable().map((removal) => removal.requestId)),
-                )
-              }
-            />
-            select all loaded
-          </label>
-          <Show when={selectedItems().length > 0 || isDeleting()}>
-            <span class="text-muted-foreground" role="status">
-              {isDeleting() ? "deleting…" : `${selectedItems().length} selected`}
-            </span>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={isDeleting()}
-              onClick={() => setSelected(new Set())}
-            >
-              clear
-            </Button>
-            <Button
-              class="ml-auto"
-              size="sm"
-              variant="destructive"
-              disabled={isDeleting()}
-              onClick={() => void deleteSelected()}
-            >
-              delete selected
-            </Button>
-          </Show>
-        </div>
         <ul class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
           <For each={requestIds()}>
             {(requestId) => (

@@ -6,6 +6,7 @@ import {
 import { createFileRoute, Outlet, redirect } from "@tanstack/solid-router";
 
 import { ButtonLink } from "@/components/ui/ButtonLink";
+import { createElementHeight } from "@/lib/createElementHeight";
 import { getOrganizationFn } from "@/modules/organizations/serverFunctions";
 
 export const Route = createFileRoute("/_app/$orgSlug")({
@@ -24,6 +25,7 @@ export const Route = createFileRoute("/_app/$orgSlug")({
 });
 
 function RouteComponent() {
+  const navbar = createElementHeight();
   const context = Route.useRouteContext();
   const navigate = Route.useNavigate();
   const homeHotkeySequence = ["G", "H"] satisfies HotkeySequence;
@@ -43,8 +45,11 @@ function RouteComponent() {
   );
 
   return (
-    <div class="min-h-[calc(100vh-3.5rem)]">
-      <div class="bg-background border-b">
+    <div
+      class="min-h-[calc(100vh-var(--app-navbar-height))]"
+      style={{ "--org-navbar-height": navbar.height() ?? "calc(3rem + 1px)" }}
+    >
+      <div ref={navbar.ref} class="bg-background sticky top-(--app-navbar-height) z-20 border-b">
         <nav
           aria-label="Organization"
           class="mx-auto flex min-h-12 w-full max-w-6xl flex-wrap items-center gap-x-5 gap-y-2 px-4 py-2 text-sm sm:px-6"
