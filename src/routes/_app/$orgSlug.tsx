@@ -73,6 +73,13 @@ function RouteComponent() {
           </ButtonLink>
           <ButtonLink
             variant="link"
+            to="/$orgSlug/download-media"
+            params={{ orgSlug: context().organization.slug }}
+          >
+            download media
+          </ButtonLink>
+          <ButtonLink
+            variant="link"
             to="/$orgSlug/invites"
             params={{ orgSlug: context().organization.slug }}
           >

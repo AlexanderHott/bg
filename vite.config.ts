@@ -16,8 +16,12 @@ export default defineConfig(({ mode }) => ({
             "**/backgroundRemovals.integration.test.ts",
             "**/cleanup.integration.test.ts",
             "**/invites.integration.test.ts",
+            "**/mediaDownloads.integration.test.ts",
           ]),
       ...(process.env.RUN_WORKER_INTEGRATION === "1" ? [] : ["**/worker.integration.test.ts"]),
+      ...(process.env.RUN_MEDIA_WORKER_INTEGRATION === "1"
+        ? []
+        : ["**/mediaWorker.integration.test.ts"]),
     ],
   },
   fmt: {

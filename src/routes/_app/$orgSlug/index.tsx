@@ -14,6 +14,19 @@ function RouteComponent() {
 
       <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         <Link
+          to="/$orgSlug/download-media"
+          params={{ orgSlug: context().organization.slug }}
+          class="group bg-card text-card-foreground focus-visible:outline-ring flex min-h-48 flex-col justify-between rounded-xl border p-5 transition-shadow hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-4"
+        >
+          <p class="text-muted-foreground text-sm">
+            Video, audio, and playlists. Original quality, with formats you can choose.
+          </p>
+          <div class="mt-6 flex items-center justify-between gap-3">
+            <h2 class="font-medium">download media</h2>
+            <ArrowUpRight aria-hidden="true" class="size-4 shrink-0" />
+          </div>
+        </Link>
+        <Link
           to="/$orgSlug/remove-background"
           params={{ orgSlug: context().organization.slug }}
           class="group bg-card text-card-foreground focus-visible:outline-ring overflow-hidden rounded-xl border transition-shadow hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-4"

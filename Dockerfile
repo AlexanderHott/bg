@@ -56,5 +56,28 @@ ADD --checksum=sha256:5600024376f572a557870a5eb0afb1e5961636bef4e1e22132025467d0
   /opt/bg/models/birefnet.onnx
 CMD ["node", ".output/worker/index.mjs"]
 
+FROM scratch AS media-tools
+ADD --checksum=sha256:58162f9bfdc27458ea47bfcb311cf47028f17d8154a8bf7d689861d46399230a \
+    https://github.com/yt-dlp/yt-dlp/releases/download/2026.08.19/yt-dlp_linux \
+    /yt-dlp-amd64
+ADD --checksum=sha256:b16e4dab368a816cd05d477d698a605a6ae87ccee1c8ffd38fa21d7254141fcc \
+    https://github.com/yt-dlp/yt-dlp/releases/download/2026.08.19/yt-dlp_linux_aarch64 \
+    /yt-dlp-arm64
+
+FROM runtime AS media-worker
+ARG TARGETARCH
+USER root
+RUN apt-get update \
+    && apt-get install --no-install-recommends --yes ffmpeg ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /var/tmp/bg-media \
+    && chown nobody:nogroup /var/tmp/bg-media
+RUN --mount=type=bind,from=media-tools,source=/,target=/tools \
+    cp /tools/yt-dlp-${TARGETARCH} /usr/local/bin/yt-dlp \
+    && chmod 755 /usr/local/bin/yt-dlp
+USER nobody
+ENV MEDIA_SCRATCH_PATH=/var/tmp/bg-media
+CMD ["node", ".output/media-worker/index.mjs"]
+
 # A default image build runs the web server.
 FROM runtime AS web

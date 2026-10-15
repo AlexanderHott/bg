@@ -1,6 +1,6 @@
 ## up next
 
-- [ ] media download
+- [x] media download
 - [ ] seed database
 - [ ] extend session lifetimes on login
 - [ ] add in-memory ratelimiter

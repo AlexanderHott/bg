@@ -15,6 +15,7 @@ import { Route as AppUserRouteImport } from './routes/_app/_user'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/_auth/sign-up'
 import { Route as AppOrgSlugIndexRouteImport } from './routes/_app/$orgSlug/index'
+import { Route as AppOrgSlugDownloadMediaRouteImport } from './routes/_app/$orgSlug/download-media'
 import { Route as AppOrgSlugInvitesRouteImport } from './routes/_app/$orgSlug/invites'
 import { Route as AppOrgSlugRemoveBackgroundRouteImport } from './routes/_app/$orgSlug/remove-background'
 import { Route as AppUserIndexRouteImport } from './routes/_app/_user/index'
@@ -48,6 +49,11 @@ const AuthSignUpRoute = AuthSignUpRouteImport.update({
 const AppOrgSlugIndexRoute = AppOrgSlugIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppOrgSlugRoute,
+} as any)
+const AppOrgSlugDownloadMediaRoute = AppOrgSlugDownloadMediaRouteImport.update({
+  id: '/download-media',
+  path: '/download-media',
   getParentRoute: () => AppOrgSlugRoute,
 } as any)
 const AppOrgSlugInvitesRoute = AppOrgSlugInvitesRouteImport.update({
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/$orgSlug': typeof AppOrgSlugRouteWithChildren
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
+  '/$orgSlug/download-media': typeof AppOrgSlugDownloadMediaRoute
   '/$orgSlug/invites': typeof AppOrgSlugInvitesRoute
   '/$orgSlug/remove-background': typeof AppOrgSlugRemoveBackgroundRoute
   '/create-organization': typeof AppUserCreateOrganizationRoute
@@ -99,6 +106,7 @@ export interface FileRoutesByTo {
   '/': typeof AppUserIndexRoute
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
+  '/$orgSlug/download-media': typeof AppOrgSlugDownloadMediaRoute
   '/$orgSlug/invites': typeof AppOrgSlugInvitesRoute
   '/$orgSlug/remove-background': typeof AppOrgSlugRemoveBackgroundRoute
   '/create-organization': typeof AppUserCreateOrganizationRoute
@@ -113,6 +121,7 @@ export interface FileRoutesById {
   '/_app/_user': typeof AppUserRouteWithChildren
   '/_auth/sign-in': typeof AuthSignInRoute
   '/_auth/sign-up': typeof AuthSignUpRoute
+  '/_app/$orgSlug/download-media': typeof AppOrgSlugDownloadMediaRoute
   '/_app/$orgSlug/invites': typeof AppOrgSlugInvitesRoute
   '/_app/$orgSlug/remove-background': typeof AppOrgSlugRemoveBackgroundRoute
   '/_app/_user/create-organization': typeof AppUserCreateOrganizationRoute
@@ -128,6 +137,7 @@ export interface FileRouteTypes {
     | '/$orgSlug'
     | '/sign-in'
     | '/sign-up'
+    | '/$orgSlug/download-media'
     | '/$orgSlug/invites'
     | '/$orgSlug/remove-background'
     | '/create-organization'
@@ -139,6 +149,7 @@ export interface FileRouteTypes {
     | '/'
     | '/sign-in'
     | '/sign-up'
+    | '/$orgSlug/download-media'
     | '/$orgSlug/invites'
     | '/$orgSlug/remove-background'
     | '/create-organization'
@@ -152,6 +163,7 @@ export interface FileRouteTypes {
     | '/_app/_user'
     | '/_auth/sign-in'
     | '/_auth/sign-up'
+    | '/_app/$orgSlug/download-media'
     | '/_app/$orgSlug/invites'
     | '/_app/$orgSlug/remove-background'
     | '/_app/_user/create-organization'
@@ -212,6 +224,13 @@ declare module '@tanstack/solid-router' {
       preLoaderRoute: typeof AppOrgSlugIndexRouteImport
       parentRoute: typeof AppOrgSlugRoute
     }
+    '/_app/$orgSlug/download-media': {
+      id: '/_app/$orgSlug/download-media'
+      path: '/download-media'
+      fullPath: '/$orgSlug/download-media'
+      preLoaderRoute: typeof AppOrgSlugDownloadMediaRouteImport
+      parentRoute: typeof AppOrgSlugRoute
+    }
     '/_app/$orgSlug/invites': {
       id: '/_app/$orgSlug/invites'
       path: '/invites'
@@ -258,12 +277,14 @@ declare module '@tanstack/solid-router' {
 }
 
 interface AppOrgSlugRouteChildren {
+  AppOrgSlugDownloadMediaRoute: typeof AppOrgSlugDownloadMediaRoute
   AppOrgSlugInvitesRoute: typeof AppOrgSlugInvitesRoute
   AppOrgSlugRemoveBackgroundRoute: typeof AppOrgSlugRemoveBackgroundRoute
   AppOrgSlugIndexRoute: typeof AppOrgSlugIndexRoute
 }
 
 const AppOrgSlugRouteChildren: AppOrgSlugRouteChildren = {
+  AppOrgSlugDownloadMediaRoute: AppOrgSlugDownloadMediaRoute,
   AppOrgSlugInvitesRoute: AppOrgSlugInvitesRoute,
   AppOrgSlugRemoveBackgroundRoute: AppOrgSlugRemoveBackgroundRoute,
   AppOrgSlugIndexRoute: AppOrgSlugIndexRoute,
