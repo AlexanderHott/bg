@@ -152,10 +152,16 @@ export type SignOpenObjectError = {
 
 export async function signOpenObject(options: {
   key: string;
+  downloadName?: string;
 }): Promise<Result<string, SignOpenObjectError>> {
   const command = new GetObjectCommand({
     Bucket: envServer.S3_BUCKET,
     Key: options.key,
+    ...(options.downloadName
+      ? {
+          ResponseContentDisposition: `attachment; filename="download"; filename*=UTF-8''${encodeURIComponent(options.downloadName).replace(/[!'()*]/g, (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`)}`,
+        }
+      : {}),
   });
   const urlResult = await tryAsync(() =>
     getSignedUrl(publicSigningClient, command, {

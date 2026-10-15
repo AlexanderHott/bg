@@ -43,6 +43,14 @@ The build output is a self-contained Node server. To deploy, push the `dist/` di
 
 For host-specific presets (Vercel, Netlify, Cloudflare, AWS Lambda, etc.) and tuning, see https://v3.nitro.build/deploy.
 
+## Media downloads
+
+Open **download media** from an organization's tools page. Paste individual URLs or playlists, then queue them immediately or prepare a draft to inspect available formats.
+
+Downloads run in the separate `media-worker` Compose service. For local development, install yt-dlp, ffmpeg, and ffprobe, apply migrations, and run `vp run dev:media-worker` alongside `vp dev`. The production image includes a pinned yt-dlp executable with its JavaScript support; the worker uses Node to run it.
+
+See [media download behavior and setup](docs/media-downloads.md) for limits, worker configuration, and tests.
+
 ## Observability pilot
 
 The production container preloads OpenTelemetry auto-instrumentation for Node HTTP, PostgreSQL, AWS SDK, and runtime metrics. It is disabled by default so local Compose does not depend on the shared telemetry service.

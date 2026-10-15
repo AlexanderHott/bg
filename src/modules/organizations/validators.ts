@@ -4,6 +4,7 @@ export const OrganizationSlugValidator = v.pipe(
   v.string("enter an organization slug"),
   v.minLength(3, "slug must have at least 3 characters"),
   v.maxLength(32, "slug cannot have more than 32 characters"),
+  v.regex(/^[a-z0-9-]+$/, "slug can only contain lowercase letters, numbers, and hyphens"),
 );
 export const OrganizationNameValidator = v.pipe(
   v.string("enter an organization name"),

@@ -1,18 +1,12 @@
 ## up next
 
+- [x] media download
 - [ ] seed database
-- [x] add otel <https://tanstack.com/start/latest/docs/framework/solid/guide/observability>
-- [x] fix passkeys
-- [x] invites
-- [ ] improve auth + organization forms
-  - [ ] change onChange validator to the dynamic one (onBlur first, then on dirty)
-  - [ ] make async username validator better
-  - [ ] make org slug autofill from the name
-  - [ ] restrict org slug to be lowercase and `A-Za-z_-`
 - [ ] extend session lifetimes on login
 - [ ] add in-memory ratelimiter
 - [ ] pin docker containers to specific hashes
 - [ ] setup renovate bot
+- e2e tests from full docker compose setup
 
 ## maybe
 

@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   check,
+  bigint,
   integer,
   pgEnum,
   pgTable,
@@ -28,8 +29,8 @@ export const files = pgTable(
     state: fileState("state").notNull(),
     name: text("name").notNull(),
     mediaType: text("media_type").notNull(),
-    expectedSizeBytes: integer("expected_size_bytes").notNull(),
-    sizeBytes: integer("size_bytes"),
+    expectedSizeBytes: bigint("expected_size_bytes", { mode: "number" }).notNull(),
+    sizeBytes: bigint("size_bytes", { mode: "number" }),
     storageKey: text("storage_key").notNull().unique(),
     thumbnailStorageKey: text("thumbnail_storage_key").unique(),
     createdAt: timestamp("created_at", timestampConfig).notNull().defaultNow(),
