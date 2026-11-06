@@ -54,7 +54,10 @@ services:
         condition: service_healthy
     restart: unless-stopped
     stop_grace_period: 10m
+    # Inference peaks near 7.1 GB whatever the input size, and the scratch tmpfs counts against this.
     mem_limit: 8g
+    # Uses idle cores freely but yields to web and Postgres under contention.
+    cpu_shares: 256
     environment:
       NODE_ENV: production
       DATABASE_URL: "postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres:5432/bg"

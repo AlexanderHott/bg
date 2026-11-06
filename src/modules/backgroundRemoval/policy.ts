@@ -6,6 +6,7 @@ export const MAX_BACKGROUND_REMOVAL_INPUT_PIXELS = 64 * 1024 * 1024;
 export const MAX_BACKGROUND_REMOVAL_INPUT_SIDE = 16_384;
 export const MAX_AUTOMATIC_ATTEMPTS = 3;
 export const ATTEMPT_LEASE_MS = 60_000;
+export const MAX_POLLED_REMOVALS = 50;
 
 const retryableFailureCodes = new Set<BackgroundRemovalFailureCode>([
   "inference_failed",

@@ -14,6 +14,7 @@ import {
   createBackgroundRemoval,
   deleteBackgroundRemoval,
   getBackgroundRemoval,
+  getBackgroundRemovals,
   listBackgroundRemovals,
   recoverExpiredBackgroundRemovalAttempt,
 } from "./backgroundRemovals";
@@ -100,6 +101,32 @@ describe.runIf(runIntegrationTests)("background-removal queue", () => {
         organizationId,
       }),
     ).resolves.toBeDefined();
+  });
+
+  test("loads a batch of requests without deleted or foreign ones", async () => {
+    const create = async () => {
+      const created = await createBackgroundRemoval({
+        organizationId,
+        requestId: randomUUIDv7(),
+        inputFileId,
+      });
+      if (!created.ok) throw new Error("Background removal was not created");
+      return created.value.id;
+    };
+    const [kept, deleted] = [await create(), await create()];
+    await deleteBackgroundRemoval({ organizationId, backgroundRemovalId: deleted });
+    const backgroundRemovalIds = [kept, deleted, randomUUIDv7()];
+
+    const found = await getBackgroundRemovals({ organizationId, backgroundRemovalIds });
+    expect(found.map((removal) => removal.id)).toEqual([kept]);
+    await expect(
+      getBackgroundRemovals({ organizationId: randomUUIDv7(), backgroundRemovalIds }),
+    ).resolves.toEqual([]);
+
+    await deleteBackgroundRemoval({ organizationId, backgroundRemovalId: kept });
+    for (const backgroundRemovalId of [kept, deleted]) {
+      await cleanDeletedBackgroundRemoval({ backgroundRemovalId });
+    }
   });
 
   test("hides a deleted request before cleaning its durable rows", async () => {

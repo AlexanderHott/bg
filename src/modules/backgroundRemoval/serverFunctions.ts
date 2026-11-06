@@ -9,10 +9,11 @@ import { OrganizationSlugValidator } from "@/modules/organizations/validators";
 import {
   createBackgroundRemoval,
   deleteBackgroundRemoval,
-  getBackgroundRemoval,
+  getBackgroundRemovals,
   listBackgroundRemovals,
   retryBackgroundRemoval,
 } from "./backgroundRemovals";
+import { MAX_POLLED_REMOVALS } from "./policy";
 
 const UuidValidator = v.pipe(v.string(), v.uuid());
 const OrganizationValidator = v.object({ organizationSlug: OrganizationSlugValidator });
@@ -59,20 +60,20 @@ export const listBackgroundRemovalsFn = createServerFn({ method: "GET" })
     });
   });
 
-export const getBackgroundRemovalFn = createServerFn({ method: "GET" })
+export const getBackgroundRemovalsFn = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .validator(
     v.object({
       organizationSlug: OrganizationSlugValidator,
-      backgroundRemovalId: UuidValidator,
+      backgroundRemovalIds: v.pipe(v.array(UuidValidator), v.maxLength(MAX_POLLED_REMOVALS)),
     }),
   )
   .handler(async ({ context, data }) => {
     setPrivateResponseHeaders();
     const organization = await requireOrganization(context.userId, data.organizationSlug);
-    return getBackgroundRemoval({
+    return getBackgroundRemovals({
       organizationId: organization.id,
-      backgroundRemovalId: data.backgroundRemovalId,
+      backgroundRemovalIds: data.backgroundRemovalIds,
     });
   });
 
