@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/solid-router";
 import { useServerFn } from "@tanstack/solid-start";
-import { createEffect, createMemo, createSignal, onCleanup, onMount, Show } from "solid-js";
+import { batch, createEffect, createMemo, createSignal, onCleanup, onMount, Show } from "solid-js";
 
 import { Button } from "@/components/ui/Button";
 import {
@@ -10,11 +10,12 @@ import {
 } from "@/modules/backgroundRemoval/browser";
 import { BackgroundRemovalGrid } from "@/modules/backgroundRemoval/components/BackgroundRemovalGrid";
 import { BackgroundRemovalUploader } from "@/modules/backgroundRemoval/components/BackgroundRemovalUploader";
+import { MAX_POLLED_REMOVALS } from "@/modules/backgroundRemoval/policy";
 import { startBackgroundRemovalPolling } from "@/modules/backgroundRemoval/polling";
 import {
   createBackgroundRemovalFn,
   deleteBackgroundRemovalFn,
-  getBackgroundRemovalFn,
+  getBackgroundRemovalsFn,
   listBackgroundRemovalsFn,
   retryBackgroundRemovalFn,
 } from "@/modules/backgroundRemoval/serverFunctions";
@@ -36,7 +37,7 @@ function RouteComponent() {
   const data = Route.useLoaderData();
   const createRemoval = useServerFn(createBackgroundRemovalFn);
   const deleteRemoval = useServerFn(deleteBackgroundRemovalFn);
-  const getRemoval = useServerFn(getBackgroundRemovalFn);
+  const getRemovals = useServerFn(getBackgroundRemovalsFn);
   const retryRemoval = useServerFn(retryBackgroundRemovalFn);
   const listRemovals = useServerFn(listBackgroundRemovalsFn);
   const [nextCursor, setNextCursor] = createSignal(data().page.nextCursor);
@@ -50,15 +51,15 @@ function RouteComponent() {
     deleteRemoval,
     onError: setErrorMessage,
   });
-  const inspections = new Map<string, { running: boolean; pending: boolean }>();
 
   const removals = createMemo(history.items);
-  const hasUnsettledRemoval = createMemo(() =>
-    removals().some(
+  const unsettledRemovals = createMemo(() =>
+    removals().filter(
       (removal) =>
         !removal.creation && ["queued", "processing", "retrying"].includes(removal.status),
     ),
   );
+  const hasUnsettledRemoval = createMemo(() => unsettledRemovals().length > 0);
 
   onMount(() => {
     const updateVisibility = () => setIsPageVisible(document.visibilityState === "visible");
@@ -71,44 +72,26 @@ function RouteComponent() {
     if (!isPageVisible() || !hasUnsettledRemoval()) return;
 
     const stop = startBackgroundRemovalPolling({
-      onPoll: async () => {
-        const unsettled = removals().filter(
-          (removal) =>
-            !removal.creation && ["queued", "processing", "retrying"].includes(removal.status),
-        );
-        await Promise.all(unsettled.map((removal) => inspect(removal.requestId)));
-      },
+      // Newest sort first and the queue is FIFO, so the tail holds the jobs that can change next.
+      onPoll: () => refresh(unsettledRemovals().slice(-MAX_POLLED_REMOVALS)),
     });
     onCleanup(stop);
   });
 
-  async function inspect(requestId: string) {
-    const state = inspections.get(requestId) ?? { running: false, pending: false };
-    state.pending = true;
-    inspections.set(requestId, state);
-    if (state.running) return;
-    state.running = true;
-
-    try {
-      do {
-        state.pending = false;
-        const current = removals().find((removal) => removal.requestId === requestId);
-        if (!current || current.creation) return;
-        const result = await getRemoval({
-          data: {
-            organizationSlug: context().organization.slug,
-            backgroundRemovalId: current.id,
-          },
-        });
-        if (!result.ok) {
-          history.hide(requestId);
-          return;
-        }
-        history.merge(result.value);
-      } while (state.pending);
-    } finally {
-      inspections.delete(requestId);
-    }
+  async function refresh(targets: ReadonlyArray<BackgroundRemovalEntry>) {
+    const current = await getRemovals({
+      data: {
+        organizationSlug: context().organization.slug,
+        backgroundRemovalIds: targets.map((target) => target.id),
+      },
+    });
+    const currentIds = new Set(current.map((removal) => removal.id));
+    batch(() => {
+      for (const removal of current) history.merge(removal);
+      for (const target of targets) {
+        if (!currentIds.has(target.id)) history.hide(target.requestId);
+      }
+    });
   }
 
   async function retry(removal: BackgroundRemovalEntry) {
@@ -128,7 +111,7 @@ function RouteComponent() {
       history.merge(result.value);
     } catch {
       setErrorMessage("Could not retry this request. Try again.");
-      await inspect(removal.requestId).catch(() => undefined);
+      await refresh([removal]).catch(() => undefined);
     }
   }
 

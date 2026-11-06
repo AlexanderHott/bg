@@ -4,6 +4,7 @@
     "instrumentation.mjs",
     "src/start.ts",
     "src/worker.ts",
+    "src/modelThread.ts",
     "src/mediaWorker.ts",
     "server/routes/**/*.ts"
   ],

@@ -206,6 +206,25 @@ export async function getBackgroundRemoval(options: {
   return ok(summary);
 }
 
+// Removals that were deleted or belong to another organization are left out of the result.
+export async function getBackgroundRemovals(options: {
+  organizationId: string;
+  backgroundRemovalIds: ReadonlyArray<string>;
+}) {
+  if (options.backgroundRemovalIds.length === 0) return [];
+  const removals = await db
+    .select()
+    .from(backgroundRemovalSchema.backgroundRemovals)
+    .where(
+      and(
+        eq(backgroundRemovalSchema.backgroundRemovals.organizationId, options.organizationId),
+        inArray(backgroundRemovalSchema.backgroundRemovals.id, [...options.backgroundRemovalIds]),
+        isNull(backgroundRemovalSchema.backgroundRemovals.deletedAt),
+      ),
+    );
+  return hydrateSummaries(options.organizationId, removals);
+}
+
 export async function retryBackgroundRemoval(options: {
   organizationId: string;
   backgroundRemovalId: string;
