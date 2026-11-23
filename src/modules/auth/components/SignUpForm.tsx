@@ -1,9 +1,7 @@
 import { createForm, formOptions, revalidateLogic } from "@tanstack/solid-form";
 import {
   createHotkey,
-  createHotkeySequence,
   formatForDisplay,
-  formatHotkeySequence,
   type HotkeySequence,
   type RegisterableHotkey,
 } from "@tanstack/solid-hotkeys";
@@ -81,7 +79,7 @@ export function SignupForm() {
   );
 
   const signInHotkeySequence = ["S", "I"] satisfies HotkeySequence;
-  createHotkeySequence(signInHotkeySequence, () => navigate({ to: "/sign-in", hash: invite() }));
+  createHotkey(signInHotkeySequence, () => navigate({ to: "/sign-in", hash: invite() }));
 
   return (
     <div class="flex max-w-sm flex-col gap-4">
@@ -163,7 +161,7 @@ export function SignupForm() {
       <p class="text-muted-foreground text-sm">
         already have an account?{" "}
         <Link class={buttonVariants({ variant: "link" })} to="/sign-in" hash={invite()}>
-          sign in · {formatHotkeySequence(signInHotkeySequence).toLocaleLowerCase()}
+          sign in · {formatForDisplay(signInHotkeySequence).toLocaleLowerCase()}
         </Link>
       </p>
     </div>
