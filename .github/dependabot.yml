@@ -1,12 +1,24 @@
 version: 2
 
 updates:
-  - package-ecosystem: "npm"
-    directory: "/"
+  # Minor/patch bumps arrive as one PR; majors get their own so a migration
+  # (e.g. solid-js 2) never blocks the routine bumps.
+  - package-ecosystem: npm
+    directory: /
     schedule:
       interval: weekly
+    groups:
+      npm:
+        patterns: ["*"]
+        update-types: [minor, patch]
+      npm-major:
+        patterns: ["*"]
+        update-types: [major]
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]
