@@ -8,6 +8,7 @@ import {
   onSettled,
   reconcile,
   Show,
+  untrack,
 } from "solid-js";
 
 import { Button } from "@/components/ui/Button";
@@ -44,11 +45,11 @@ export function DownloadQueue(props: {
   const [urls, setUrls] = createSignal("");
   const [settings, setSettings] = createSignal<Settings>({ ...DEFAULT_SETTINGS });
   const [batchSettings, setBatchSettings] = createSignal<Settings>({ ...DEFAULT_SETTINGS });
-  const [history, setHistory] = createSignal(() => props.initial.batches);
-  const [nextCursor, setNextCursor] = createSignal(() => props.initial.nextCursor);
-  const [selected, setSelected] = createSignal<string | undefined>(
-    () => props.initial.batches[0]?.id,
-  );
+  // Seeded once; later loader results must not reset the expanded history or selection.
+  const initial = untrack(() => props.initial);
+  const [history, setHistory] = createSignal(initial.batches);
+  const [nextCursor, setNextCursor] = createSignal(initial.nextCursor);
+  const [selected, setSelected] = createSignal<string | undefined>(initial.batches[0]?.id);
   const [offset, setOffset] = createSignal(0);
   const [state, setState] = createStore<{ page: BatchPage | undefined }>({ page: undefined });
   const page = () => state.page;

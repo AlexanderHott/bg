@@ -73,8 +73,11 @@ export function SignInForm() {
   const signUpHotkeySequence = ["S", "U"] satisfies HotkeySequence;
   createHotkey(signUpHotkeySequence, () => navigate({ to: "/sign-up", hash: invite() }));
 
+  // Signal reads lag writes until Solid flushes, so the guard needs a plain flag.
+  let passkeyInFlight = false;
   async function signInWithPasskey() {
-    if (isPasskeyPending()) return;
+    if (passkeyInFlight) return;
+    passkeyInFlight = true;
     setError(undefined);
     setIsPasskeyPending(true);
     try {
@@ -92,6 +95,7 @@ export function SignInForm() {
     } catch {
       setError("Could not sign in with your passkey. Try again or use your password.");
     } finally {
+      passkeyInFlight = false;
       setIsPasskeyPending(false);
     }
   }

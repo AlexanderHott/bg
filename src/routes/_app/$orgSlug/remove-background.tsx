@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/solid-router";
 import { useServerFn } from "@tanstack/solid-start";
-import { createEffect, createMemo, createSignal, onSettled, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, onSettled, Show, untrack } from "solid-js";
 
 import { Button } from "@/components/ui/Button";
 import {
@@ -40,7 +40,7 @@ function RouteComponent() {
   const getRemovals = useServerFn(getBackgroundRemovalsFn);
   const retryRemoval = useServerFn(retryBackgroundRemovalFn);
   const listRemovals = useServerFn(listBackgroundRemovalsFn);
-  const [nextCursor, setNextCursor] = createSignal(() => data().page.nextCursor);
+  const [nextCursor, setNextCursor] = createSignal(untrack(() => data().page.nextCursor));
   const [isPageVisible, setIsPageVisible] = createSignal(true);
   const [isLoadingMore, setIsLoadingMore] = createSignal(false);
   const [errorMessage, setErrorMessage] = createSignal<string>();
