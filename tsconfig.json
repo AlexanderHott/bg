@@ -3,7 +3,7 @@
   "compilerOptions": {
     "target": "ESNext",
     "jsx": "preserve",
-    "jsxImportSource": "solid-js",
+    "jsxImportSource": "@solidjs/web",
     "module": "ESNext",
     "lib": ["ESNext", "ES2017.TypedArrays", "DOM", "DOM.Iterable"],
     "types": ["node", "vite/client"],

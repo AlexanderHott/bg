@@ -1,6 +1,6 @@
 import { Switch } from "@kobalte/core/switch";
-import { Download, TrashIcon } from "lucide-solid";
-import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
+import { Download, TrashIcon } from "@lucide/solid";
+import { createMemo, createSignal, For, Show } from "solid-js";
 
 import { Button } from "@/components/ui/Button";
 import { CopyPngButton } from "@/modules/files/components/CopyPngButton";
@@ -64,15 +64,12 @@ export function BackgroundRemovalGrid(props: {
             checked={transparent()}
             onChange={setTransparent}
           >
-            <span classList={{ "text-muted-foreground": transparent() }}>original</span>
+            <span class={{ "text-muted-foreground": transparent() }}>original</span>
             <Switch.Input aria-label="Show transparent images" />
             <Switch.Control class="bg-muted data-checked:bg-primary group-focus-within/preview:ring-ring inline-flex h-6 w-10 cursor-pointer items-center rounded-full border p-0.5 group-focus-within/preview:ring-2">
               <Switch.Thumb class="bg-background size-4 rounded-full shadow-sm transition-transform data-checked:translate-x-4" />
             </Switch.Control>
-            <Switch.Label
-              class="cursor-pointer"
-              classList={{ "text-muted-foreground": !transparent() }}
-            >
+            <Switch.Label class={["cursor-pointer", { "text-muted-foreground": !transparent() }]}>
               transparent
             </Switch.Label>
           </Switch>
@@ -85,11 +82,7 @@ export function BackgroundRemovalGrid(props: {
                 type="checkbox"
                 class="accent-primary size-4"
                 checked={allSelected()}
-                ref={(input) =>
-                  createEffect(() => {
-                    input.indeterminate = selectedItems().length > 0 && !allSelected();
-                  })
-                }
+                prop:indeterminate={selectedItems().length > 0 && !allSelected()}
                 disabled={isDeleting() || selectable().length === 0}
                 onChange={() =>
                   setSelected(
@@ -174,12 +167,16 @@ function BackgroundRemovalTile(props: {
   });
   return (
     <li
-      class="group bg-card transiton min-w-0 overflow-hidden rounded-xl border transition-all duration-150"
-      classList={{ "border-primary ring-1 ring-primary": props.selected }}
+      class={[
+        "group bg-card transiton min-w-0 overflow-hidden rounded-xl border transition-all duration-150",
+        { "border-primary ring-primary ring-1": props.selected },
+      ]}
     >
       <div
-        class="bg-muted/30 relative aspect-4/3"
-        classList={{ "transparency-grid": props.transparent && !!props.removal.output }}
+        class={[
+          "bg-muted/30 relative aspect-4/3",
+          { "transparency-grid": props.transparent && !!props.removal.output },
+        ]}
       >
         <Show
           when={image().url}
@@ -202,8 +199,10 @@ function BackgroundRemovalTile(props: {
           />
         </Show>
         <label
-          class="bg-background/90 absolute top-2 left-2 flex cursor-pointer rounded-md p-1.5 shadow-sm transition-[opacity,scale] duration-150 ease-out group-hover:scale-100 group-hover:opacity-100 has-[:focus-visible]:scale-100 has-[:focus-visible]:opacity-100 motion-reduce:transition-none"
-          classList={{ "scale-95 opacity-0": !props.showCheckbox }}
+          class={[
+            "bg-background/90 absolute top-2 left-2 flex cursor-pointer rounded-md p-1.5 shadow-sm transition-[opacity,scale] duration-150 ease-out group-hover:scale-100 group-hover:opacity-100 has-[:focus-visible]:scale-100 has-[:focus-visible]:opacity-100 motion-reduce:transition-none",
+            { "scale-95 opacity-0": !props.showCheckbox },
+          ]}
         >
           <input
             type="checkbox"

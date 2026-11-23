@@ -1,76 +1,67 @@
-import { splitProps, type JSX } from "solid-js";
-
-import { cn } from "@/lib/cn";
+import type { JSX } from "@solidjs/web";
+import { omit } from "solid-js";
 
 function Table(props: JSX.IntrinsicElements["table"]) {
-  const [local, others] = splitProps(props, ["class"]);
+  const others = omit(props, "class");
 
   return (
     <div data-slot="table-container" class="relative w-full overflow-x-auto">
-      <table
-        data-slot="table"
-        class={cn("w-full caption-bottom text-sm", local.class)}
-        {...others}
-      />
+      <table data-slot="table" class={["w-full caption-bottom text-sm", props.class]} {...others} />
     </div>
   );
 }
 
 function TableHeader(props: JSX.IntrinsicElements["thead"]) {
-  const [local, others] = splitProps(props, ["class"]);
+  const others = omit(props, "class");
 
-  return <thead data-slot="table-header" class={cn("[&_tr]:border-b", local.class)} {...others} />;
+  return <thead data-slot="table-header" class={["[&_tr]:border-b", props.class]} {...others} />;
 }
 
 function TableBody(props: JSX.IntrinsicElements["tbody"]) {
-  const [local, others] = splitProps(props, ["class"]);
+  const others = omit(props, "class");
 
   return (
-    <tbody
-      data-slot="table-body"
-      class={cn("[&_tr:last-child]:border-0", local.class)}
-      {...others}
-    />
+    <tbody data-slot="table-body" class={["[&_tr:last-child]:border-0", props.class]} {...others} />
   );
 }
 
 function TableRow(props: JSX.IntrinsicElements["tr"]) {
-  const [local, others] = splitProps(props, ["class"]);
+  const others = omit(props, "class");
 
   return (
     <tr
       data-slot="table-row"
-      class={cn(
-        "border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
-        local.class,
-      )}
+      class={[
+        "hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted border-b transition-colors",
+        props.class,
+      ]}
       {...others}
     />
   );
 }
 
 function TableHead(props: JSX.IntrinsicElements["th"]) {
-  const [local, others] = splitProps(props, ["class"]);
+  const others = omit(props, "class");
 
   return (
     <th
       data-slot="table-head"
-      class={cn(
-        "h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground has-[[role=checkbox]]:pr-0",
-        local.class,
-      )}
+      class={[
+        "text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap has-[[role=checkbox]]:pr-0",
+        props.class,
+      ]}
       {...others}
     />
   );
 }
 
 function TableCell(props: JSX.IntrinsicElements["td"]) {
-  const [local, others] = splitProps(props, ["class"]);
+  const others = omit(props, "class");
 
   return (
     <td
       data-slot="table-cell"
-      class={cn("p-2 align-middle whitespace-nowrap has-[[role=checkbox]]:pr-0", local.class)}
+      class={["p-2 align-middle whitespace-nowrap has-[[role=checkbox]]:pr-0", props.class]}
       {...others}
     />
   );

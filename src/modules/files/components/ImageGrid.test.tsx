@@ -1,4 +1,4 @@
-import { renderToString } from "solid-js/web";
+import { renderToString } from "@solidjs/web";
 import { describe, expect, test } from "vite-plus/test";
 
 import { ImageGrid } from "./ImageGrid";

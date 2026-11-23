@@ -1,7 +1,7 @@
 import { Dialog } from "@kobalte/core/dialog";
+import { CloudUpload, X } from "@lucide/solid";
 import { createHotkey, formatForDisplay, type RegisterableHotkey } from "@tanstack/solid-hotkeys";
-import { CloudUpload, X } from "lucide-solid";
-import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { createMemo, createSignal, For, onSettled, Show } from "solid-js";
 
 import { Button } from "@/components/ui/Button";
 import type { ReadyFile } from "@/modules/files/files";
@@ -65,7 +65,7 @@ export function BackgroundRemovalUploader(props: {
     ignoreInputs: false,
   }));
 
-  onMount(() => {
+  onSettled(() => {
     const controller = new AbortController();
     document.addEventListener(
       "paste",
@@ -134,9 +134,11 @@ export function BackgroundRemovalUploader(props: {
       { signal: controller.signal },
     );
     window.addEventListener("blur", reset, { signal: controller.signal });
-    onCleanup(() => controller.abort());
+    return () => {
+      controller.abort();
+      batch.cancel();
+    };
   });
-  onCleanup(batch.cancel);
 
   return (
     <>
@@ -328,11 +330,11 @@ export function BackgroundRemovalUploader(props: {
 
 function UploadPreview(props: { file: File }) {
   const [url, setUrl] = createSignal<string>();
-  onMount(() => {
+  onSettled(() => {
     if (props.file.size > 25_000_000) return;
     const preview = URL.createObjectURL(props.file);
     setUrl(preview);
-    onCleanup(() => URL.revokeObjectURL(preview));
+    return () => URL.revokeObjectURL(preview);
   });
   return (
     <Show

@@ -1,5 +1,5 @@
-import type { JSX } from "solid-js";
-import { renderToString } from "solid-js/web";
+import type { JSX } from "@solidjs/web";
+import { renderToString } from "@solidjs/web";
 import { beforeEach, expect, test, vi } from "vite-plus/test";
 
 import { SignInForm } from "./SignInForm";

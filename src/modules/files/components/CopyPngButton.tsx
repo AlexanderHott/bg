@@ -1,4 +1,4 @@
-import { Check, Copy, LoaderCircle } from "lucide-solid";
+import { Check, Copy, LoaderCircle } from "@lucide/solid";
 import { createSignal, onCleanup, Show } from "solid-js";
 
 import { Button } from "@/components/ui/Button";

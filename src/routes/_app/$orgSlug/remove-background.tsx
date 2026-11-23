@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/solid-router";
 import { useServerFn } from "@tanstack/solid-start";
-import { batch, createEffect, createMemo, createSignal, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, onSettled, Show } from "solid-js";
 
 import { Button } from "@/components/ui/Button";
 import {
@@ -40,7 +40,7 @@ function RouteComponent() {
   const getRemovals = useServerFn(getBackgroundRemovalsFn);
   const retryRemoval = useServerFn(retryBackgroundRemovalFn);
   const listRemovals = useServerFn(listBackgroundRemovalsFn);
-  const [nextCursor, setNextCursor] = createSignal(data().page.nextCursor);
+  const [nextCursor, setNextCursor] = createSignal(() => data().page.nextCursor);
   const [isPageVisible, setIsPageVisible] = createSignal(true);
   const [isLoadingMore, setIsLoadingMore] = createSignal(false);
   const [errorMessage, setErrorMessage] = createSignal<string>();
@@ -59,23 +59,21 @@ function RouteComponent() {
         !removal.creation && ["queued", "processing", "retrying"].includes(removal.status),
     ),
   );
-  const hasUnsettledRemoval = createMemo(() => unsettledRemovals().length > 0);
+  const shouldPoll = createMemo(() => isPageVisible() && unsettledRemovals().length > 0);
 
-  onMount(() => {
+  onSettled(() => {
     const updateVisibility = () => setIsPageVisible(document.visibilityState === "visible");
     updateVisibility();
     document.addEventListener("visibilitychange", updateVisibility);
-    onCleanup(() => document.removeEventListener("visibilitychange", updateVisibility));
+    return () => document.removeEventListener("visibilitychange", updateVisibility);
   });
 
-  createEffect(() => {
-    if (!isPageVisible() || !hasUnsettledRemoval()) return;
-
-    const stop = startBackgroundRemovalPolling({
+  createEffect(shouldPoll, (poll) => {
+    if (!poll) return;
+    return startBackgroundRemovalPolling({
       // Newest sort first and the queue is FIFO, so the tail holds the jobs that can change next.
       onPoll: () => refresh(unsettledRemovals().slice(-MAX_POLLED_REMOVALS)),
     });
-    onCleanup(stop);
   });
 
   async function refresh(targets: ReadonlyArray<BackgroundRemovalEntry>) {
@@ -86,12 +84,10 @@ function RouteComponent() {
       },
     });
     const currentIds = new Set(current.map((removal) => removal.id));
-    batch(() => {
-      for (const removal of current) history.merge(removal);
-      for (const target of targets) {
-        if (!currentIds.has(target.id)) history.hide(target.requestId);
-      }
-    });
+    for (const removal of current) history.merge(removal);
+    for (const target of targets) {
+      if (!currentIds.has(target.id)) history.hide(target.requestId);
+    }
   }
 
   async function retry(removal: BackgroundRemovalEntry) {

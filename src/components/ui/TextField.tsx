@@ -1,26 +1,24 @@
-import type { PolymorphicProps } from "@kobalte/core";
+import type { PolymorphicProps } from "@kobalte/core/polymorphic";
 import * as TextFieldPrimitive from "@kobalte/core/text-field";
+import type { JSX, ValidComponent } from "@solidjs/web";
 import { cva } from "class-variance-authority";
-import type { ValidComponent } from "solid-js";
-import { mergeProps, splitProps } from "solid-js";
-
-import { cn } from "@/lib/cn";
+import { omit } from "solid-js";
 
 type TextFieldRootProps<T extends ValidComponent = "div"> =
   TextFieldPrimitive.TextFieldRootProps<T> & {
-    class?: string | undefined;
+    class?: JSX.ClassValue;
   };
 
 const TextField = <T extends ValidComponent = "div">(
   props: PolymorphicProps<T, TextFieldRootProps<T>>,
 ) => {
-  const [local, others] = splitProps(props as TextFieldRootProps, ["class"]);
-  return <TextFieldPrimitive.Root class={cn("flex flex-col gap-1", local.class)} {...others} />;
+  const others = omit(props as TextFieldRootProps, "class");
+  return <TextFieldPrimitive.Root class={["flex flex-col gap-1", props.class]} {...others} />;
 };
 
 type TextFieldInputProps<T extends ValidComponent = "input"> =
   TextFieldPrimitive.TextFieldInputProps<T> & {
-    class?: string | undefined;
+    class?: JSX.ClassValue;
     type?:
       | "button"
       | "checkbox"
@@ -47,17 +45,16 @@ type TextFieldInputProps<T extends ValidComponent = "input"> =
   };
 
 const TextFieldInput = <T extends ValidComponent = "input">(
-  rawProps: PolymorphicProps<T, TextFieldInputProps<T>>,
+  props: PolymorphicProps<T, TextFieldInputProps<T>>,
 ) => {
-  const props = mergeProps<TextFieldInputProps<T>[]>({ type: "text" }, rawProps);
-  const [local, others] = splitProps(props as TextFieldInputProps, ["type", "class"]);
+  const others = omit(props as TextFieldInputProps, "type", "class");
   return (
     <TextFieldPrimitive.Input
-      type={local.type}
-      class={cn(
-        "flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-invalid:border-error-foreground data-invalid:text-error-foreground",
-        local.class,
-      )}
+      type={props.type ?? "text"}
+      class={[
+        "border-input ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring data-invalid:border-error-foreground data-invalid:text-error-foreground flex h-10 w-full rounded-md border bg-transparent px-3 py-2 text-sm file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50",
+        props.class,
+      ]}
       {...others}
     />
   );
@@ -79,27 +76,27 @@ const labelVariants = cva(
 );
 
 type TextFieldLabelProps<T extends ValidComponent = "label"> =
-  TextFieldPrimitive.TextFieldLabelProps<T> & { class?: string | undefined };
+  TextFieldPrimitive.TextFieldLabelProps<T> & { class?: JSX.ClassValue };
 
 const TextFieldLabel = <T extends ValidComponent = "label">(
   props: PolymorphicProps<T, TextFieldLabelProps<T>>,
 ) => {
-  const [local, others] = splitProps(props as TextFieldLabelProps, ["class"]);
-  return <TextFieldPrimitive.Label class={cn(labelVariants(), local.class)} {...others} />;
+  const others = omit(props as TextFieldLabelProps, "class");
+  return <TextFieldPrimitive.Label class={[labelVariants(), props.class]} {...others} />;
 };
 
 type TextFieldErrorMessageProps<T extends ValidComponent = "div"> =
   TextFieldPrimitive.TextFieldErrorMessageProps<T> & {
-    class?: string | undefined;
+    class?: JSX.ClassValue;
   };
 
 const TextFieldErrorMessage = <T extends ValidComponent = "div">(
   props: PolymorphicProps<T, TextFieldErrorMessageProps<T>>,
 ) => {
-  const [local, others] = splitProps(props as TextFieldErrorMessageProps, ["class"]);
+  const others = omit(props as TextFieldErrorMessageProps, "class");
   return (
     <TextFieldPrimitive.ErrorMessage
-      class={cn(labelVariants({ variant: "error" }), local.class)}
+      class={[labelVariants({ variant: "error" }), props.class]}
       {...others}
     />
   );

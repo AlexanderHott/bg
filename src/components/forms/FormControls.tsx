@@ -1,5 +1,6 @@
-import { LoaderCircle } from "lucide-solid";
-import { createUniqueId, Show, type JSX } from "solid-js";
+import { LoaderCircle } from "@lucide/solid";
+import type { JSX } from "@solidjs/web";
+import { createUniqueId, Show } from "solid-js";
 
 import { Button } from "@/components/ui/Button";
 import {
@@ -16,7 +17,7 @@ type FormTextFieldProps = {
   "data-1p-ignore"?: boolean;
   validatingMessage?: string;
   successMessage?: string;
-  field: () => {
+  field: {
     name: string;
     state: {
       value: string;
@@ -28,7 +29,7 @@ type FormTextFieldProps = {
 };
 
 export function FormTextField(props: FormTextFieldProps) {
-  const field = () => props.field();
+  const field = () => props.field;
   const statusId = createUniqueId();
   const isValidating = () => field().state.meta.isValidating;
   const successMessage = () =>
@@ -48,7 +49,7 @@ export function FormTextField(props: FormTextFieldProps) {
         data-1p-ignore={props["data-1p-ignore"]}
         name={field().name}
         value={field().state.value}
-        aria-busy={isValidating()}
+        aria-busy={isValidating() ? "true" : "false"}
         aria-describedby={isValidating() || successMessage() ? statusId : undefined}
         onBlur={field().handleBlur}
         onInput={(event) => field().handleChange(event.currentTarget.value)}

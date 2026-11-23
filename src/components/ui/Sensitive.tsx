@@ -1,4 +1,5 @@
-import { createSignal, Show, type JSX } from "solid-js";
+import type { JSX } from "@solidjs/web";
+import { createSignal, Show } from "solid-js";
 
 import { Button } from "./Button";
 
@@ -14,9 +15,7 @@ export function Sensitive(props: Readonly<SensitiveProps>) {
     <Button
       variant="ghost"
       onClick={() => setRevealed(!revealed())}
-      classList={{
-        "blur-xs": !revealed(),
-      }}
+      class={{ "blur-xs": !revealed() }}
     >
       <Show when={revealed()} fallback={props.fallback}>
         {props.children}

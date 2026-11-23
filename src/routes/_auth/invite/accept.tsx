@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useLocation, useNavigate, useRouter } from "@tanstack/solid-router";
 import { useServerFn } from "@tanstack/solid-start";
-import { createResource, createSignal, ErrorBoundary, onMount, Show, Suspense } from "solid-js";
+import { createMemo, createSignal, Errored, Loading, onSettled, Show } from "solid-js";
 
 import { Button, buttonVariants } from "@/components/ui/Button";
 import { signOutFn } from "@/modules/auth/serverFunctions";
@@ -13,18 +13,18 @@ export const Route = createFileRoute("/_auth/invite/accept")({ component: Invite
 function InvitePage() {
   return (
     <main class="mx-auto flex min-h-screen max-w-lg flex-col justify-center gap-4 p-6">
-      <ErrorBoundary
+      <Errored
         fallback={(_, reset) => (
           <>
             <p role="alert">Could not load this invite.</p>
-            <Button onClick={reset}>try again</Button>
+            <Button onClick={() => reset()}>try again</Button>
           </>
         )}
       >
-        <Suspense fallback={<p role="status">Loading invite...</p>}>
+        <Loading fallback={<p role="status">Loading invite...</p>}>
           <InviteDetails />
-        </Suspense>
-      </ErrorBoundary>
+        </Loading>
+      </Errored>
     </main>
   );
 }
@@ -40,10 +40,12 @@ function InviteDetails() {
   const [mounted, setMounted] = createSignal(false);
   const [pending, setPending] = createSignal(false);
   const [error, setError] = createSignal<string>();
-  onMount(() => setMounted(true));
-  const [data] = createResource(
-    () => (mounted() ? (token() ?? "invalid") : undefined),
-    (token) => preview({ data: { token } }),
+  // The token lives in the URL hash, which only the browser sees.
+  onSettled(() => {
+    setMounted(true);
+  });
+  const data = createMemo(() =>
+    mounted() ? preview({ data: { token: token() ?? "invalid" } }) : undefined,
   );
 
   async function join() {

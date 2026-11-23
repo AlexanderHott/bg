@@ -1,6 +1,14 @@
 import { useServerFn } from "@tanstack/solid-start";
-import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
-import { createStore, reconcile } from "solid-js/store";
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  createStore,
+  For,
+  onSettled,
+  reconcile,
+  Show,
+} from "solid-js";
 
 import { Button } from "@/components/ui/Button";
 
@@ -36,13 +44,15 @@ export function DownloadQueue(props: {
   const [urls, setUrls] = createSignal("");
   const [settings, setSettings] = createSignal<Settings>({ ...DEFAULT_SETTINGS });
   const [batchSettings, setBatchSettings] = createSignal<Settings>({ ...DEFAULT_SETTINGS });
-  const [history, setHistory] = createSignal(props.initial.batches);
-  const [nextCursor, setNextCursor] = createSignal(props.initial.nextCursor);
-  const [selected, setSelected] = createSignal<string | undefined>(props.initial.batches[0]?.id);
+  const [history, setHistory] = createSignal(() => props.initial.batches);
+  const [nextCursor, setNextCursor] = createSignal(() => props.initial.nextCursor);
+  const [selected, setSelected] = createSignal<string | undefined>(
+    () => props.initial.batches[0]?.id,
+  );
   const [offset, setOffset] = createSignal(0);
   const [state, setState] = createStore<{ page: BatchPage | undefined }>({ page: undefined });
   const page = () => state.page;
-  const setPage = (value: BatchPage | undefined) => setState("page", reconcile(value));
+  const setPage = (value: BatchPage | undefined) => setState(reconcile({ page: value }));
   const [openItem, setOpenItem] = createSignal<string>();
   const [busy, setBusy] = createSignal(false);
   const [adding, setAdding] = createSignal(false);
@@ -62,11 +72,9 @@ export function DownloadQueue(props: {
     );
   });
 
-  async function refresh() {
-    const batchId = selected();
+  async function refresh(batchId = selected(), currentOffset = offset()) {
     if (!batchId) return;
     const expectedRevision = revision;
-    const currentOffset = offset();
     const result = await getBatch({ data: { ...scope(), batchId, offset: currentOffset } });
     if (
       disposed ||
@@ -85,28 +93,33 @@ export function DownloadQueue(props: {
     );
   }
 
-  createEffect(() => {
-    const expectedRevision = ++revision;
-    setPage(undefined);
-    setOpenItem(undefined);
-    void refresh().catch(() => {
-      if (!disposed && revision === expectedRevision) setError("Could not load this batch.");
-    });
-  });
+  createEffect(
+    () => ({ batchId: selected(), offset: offset() }),
+    ({ batchId, offset: currentOffset }) => {
+      const expectedRevision = ++revision;
+      setPage(undefined);
+      setOpenItem(undefined);
+      void refresh(batchId, currentOffset).catch(() => {
+        if (!disposed && revision === expectedRevision) setError("Could not load this batch.");
+      });
+    },
+  );
 
-  createEffect(() => {
-    const current = page();
-    if (
-      current?.batch.state === "draft" &&
-      current.total === 1 &&
-      openedBatchId !== current.batch.id
-    ) {
-      openedBatchId = current.batch.id;
-      setOpenItem(current.items[0]?.id);
-    }
-  });
+  // A draft with a single item opens its formats once.
+  createEffect(
+    () => {
+      const current = page();
+      if (current?.batch.state !== "draft" || current.total !== 1) return undefined;
+      return { batchId: current.batch.id, itemId: current.items[0]?.id };
+    },
+    (draft) => {
+      if (!draft || openedBatchId === draft.batchId) return;
+      openedBatchId = draft.batchId;
+      setOpenItem(draft.itemId);
+    },
+  );
 
-  onMount(() => {
+  onSettled(() => {
     const timer = setInterval(() => {
       if (polling || busy() || !active() || document.visibilityState !== "visible") return;
       polling = true;
@@ -116,10 +129,10 @@ export function DownloadQueue(props: {
           polling = false;
         });
     }, 2_000);
-    onCleanup(() => {
+    return () => {
       disposed = true;
       clearInterval(timer);
-    });
+    };
   });
 
   async function run(action?: () => Promise<void>) {
@@ -199,9 +212,11 @@ export function DownloadQueue(props: {
               <Button
                 type="button"
                 variant={mode() === value ? "secondary" : "ghost"}
-                aria-pressed={mode() === value}
+                aria-pressed={mode() === value ? "true" : "false"}
                 disabled={busy()}
-                onClick={() => setMode(value)}
+                onClick={() => {
+                  setMode(value);
+                }}
               >
                 {value === "simple" ? "Simple" : "Prepare"}
               </Button>
@@ -467,10 +482,10 @@ export function DownloadQueue(props: {
                         <Show when={item.url && current().batch.state !== "cancelled"}>
                           <Button
                             variant="ghost"
-                            onClick={() =>
-                              setOpenItem(openItem() === item.id ? undefined : item.id)
-                            }
-                            aria-expanded={openItem() === item.id}
+                            onClick={() => {
+                              setOpenItem(openItem() === item.id ? undefined : item.id);
+                            }}
+                            aria-expanded={openItem() === item.id ? "true" : "false"}
                           >
                             Details & formats
                           </Button>

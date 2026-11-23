@@ -1,5 +1,5 @@
+import { ArrowUpRight } from "@lucide/solid";
 import { createFileRoute, Link } from "@tanstack/solid-router";
-import { ArrowUpRight } from "lucide-solid";
 
 export const Route = createFileRoute("/_app/$orgSlug/")({
   component: RouteComponent,

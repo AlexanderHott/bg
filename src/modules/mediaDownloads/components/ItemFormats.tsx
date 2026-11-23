@@ -1,5 +1,5 @@
 import { useServerFn } from "@tanstack/solid-start";
-import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { createSignal, For, onSettled, Show } from "solid-js";
 
 import { Button } from "@/components/ui/Button";
 
@@ -49,7 +49,7 @@ export function ItemFormats(props: {
       if (!disposed) setLoading(false);
     }
   }
-  onMount(() => {
+  onSettled(() => {
     void (async () => {
       try {
         await inspect({ data: { ...input(), refresh: false } });
@@ -65,10 +65,10 @@ export function ItemFormats(props: {
       )
         void load();
     }, 2_000);
-    onCleanup(() => {
+    return () => {
       disposed = true;
       clearInterval(timer);
-    });
+    };
   });
   return (
     <div class="mt-4 flex flex-col gap-4 border-t pt-4">

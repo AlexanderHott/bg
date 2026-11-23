@@ -1,12 +1,14 @@
+import solidPlugin from "@solidjs/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import { devtools } from "@tanstack/devtools-vite";
 import { tanstackStart } from "@tanstack/solid-start/plugin/vite";
 import { nitro } from "nitro/vite";
-import solidPlugin from "vite-plugin-solid";
 import { defaultExclude, defineConfig, lazyPlugins } from "vite-plus";
 
 export default defineConfig(({ mode }) => ({
   test: {
+    // Explicit so @solidjs/vite-plugin resolves Solid's server build for renderToString tests.
+    environment: "node",
     // Skipping a suite still evaluates its server imports; opt in before collection.
     exclude: [
       ...defaultExclude,

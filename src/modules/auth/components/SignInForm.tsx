@@ -1,4 +1,4 @@
-import { createForm, formOptions } from "@tanstack/solid-form";
+import { FieldApi, FormApi } from "@tanstack/form-core";
 import {
   createHotkey,
   formatForDisplay,
@@ -17,16 +17,12 @@ import {
 } from "@/components/forms/FormControls";
 import { Button, buttonVariants } from "@/components/ui/Button";
 import { Separator } from "@/components/ui/Separator";
+import { useField, useForm, useSelector } from "@/lib/form";
 import { destinationAfterAuth, inviteTokenFromHash } from "@/modules/organizations/inviteToken";
 
 import { authenticateWithPasskey } from "../lib/webauthn/browser";
 import { beginPasskeyAuthFn, finishPasskeyAuthFn, signInFn } from "../serverFunctions";
 import { PasswordValidator, UsernameValidator } from "../validators";
-
-interface LoginFormData {
-  username: string;
-  password: string;
-}
 
 export function SignInForm() {
   const signIn = useServerFn(signInFn);
@@ -44,37 +40,34 @@ export function SignInForm() {
   const finishPasskeyAuth = useServerFn(finishPasskeyAuthFn);
   const [isPasskeyPending, setIsPasskeyPending] = createSignal(false);
 
-  const formOpts = formOptions({
-    defaultValues: {
-      username: "",
-      password: "",
-    } satisfies LoginFormData,
-  });
-  const form = createForm(() => ({
-    ...formOpts,
-    onSubmit: async ({ value }) => {
-      setError(undefined);
-      try {
-        await signIn({ data: { username: value.username, password: value.password } });
-        await finishSignIn();
-      } catch {
-        setError("Could not sign in. Check your username and password and try again.");
-      }
-    },
-    validators: {
-      onChange: v.object({
-        username: UsernameValidator,
-        password: PasswordValidator,
-      }),
-    },
-  }));
-
-  const canSubmit = form.useSelector((state) => state.canSubmit);
+  const form = useForm(
+    new FormApi({
+      defaultValues: { username: "", password: "" },
+      onSubmit: async ({ value }) => {
+        setError(undefined);
+        try {
+          await signIn({ data: { username: value.username, password: value.password } });
+          await finishSignIn();
+        } catch {
+          setError("Could not sign in. Check your username and password and try again.");
+        }
+      },
+      validators: {
+        onChange: v.object({
+          username: UsernameValidator,
+          password: PasswordValidator,
+        }),
+      },
+    }),
+  );
+  const username = useField(new FieldApi({ form, name: "username" }));
+  const password = useField(new FieldApi({ form, name: "password" }));
+  const submission = useSelector(form.store, selectSubmissionState);
   const submitHotkey = { mod: true, key: "Enter" } satisfies RegisterableHotkey;
   createHotkey(
     submitHotkey,
     () => form.handleSubmit(),
-    () => ({ enabled: canSubmit() }),
+    () => ({ enabled: submission().canSubmit }),
   );
 
   const signUpHotkeySequence = ["S", "U"] satisfies HotkeySequence;
@@ -118,38 +111,21 @@ export function SignInForm() {
         }}
         class="flex flex-col gap-4"
       >
-        <form.Field
-          name="username"
-          children={(field) => (
-            <FormTextField
-              label="username"
-              type="text"
-              autocomplete="username webauthn"
-              field={field}
-            />
-          )}
+        <FormTextField
+          label="username"
+          type="text"
+          autocomplete="username webauthn"
+          field={username()}
         />
-
-        <form.Field
-          name="password"
-          children={(field) => (
-            <FormTextField
-              label="password"
-              type="password"
-              autocomplete="current-password"
-              field={field}
-            />
-          )}
+        <FormTextField
+          label="password"
+          type="password"
+          autocomplete="current-password"
+          field={password()}
         />
-
-        <form.Subscribe
-          selector={selectSubmissionState}
-          children={(state) => (
-            <FormSubmitButton {...state()}>
-              sign in · {formatForDisplay(submitHotkey).toLocaleLowerCase()}
-            </FormSubmitButton>
-          )}
-        />
+        <FormSubmitButton {...submission()}>
+          sign in · {formatForDisplay(submitHotkey).toLocaleLowerCase()}
+        </FormSubmitButton>
       </form>
 
       <Separator />
