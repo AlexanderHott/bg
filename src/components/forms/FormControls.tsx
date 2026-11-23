@@ -1,5 +1,10 @@
 import { LoaderCircle } from "@lucide/solid";
 import type { JSX } from "@solidjs/web";
+import {
+  createHotkey,
+  type CreateHotkeyOptionsFor,
+  type RegisterableHotkey,
+} from "@tanstack/solid-hotkeys";
 import { createUniqueId, Show } from "solid-js";
 
 import { Button } from "@/components/ui/Button";
@@ -9,6 +14,7 @@ import {
   TextFieldInput,
   TextFieldLabel,
 } from "@/components/ui/TextField";
+import { type StoreSource, useSelector } from "@/lib/form";
 
 type FormTextFieldProps = {
   label: string;
@@ -97,7 +103,28 @@ export function FormSubmitButton(props: {
   );
 }
 
-export function selectSubmissionState(state: { canSubmit: boolean; isSubmitting: boolean }) {
+export const SUBMIT_HOTKEY = { mod: true, key: "Enter" } satisfies RegisterableHotkey;
+
+type SubmissionState = ReturnType<typeof selectSubmissionState>;
+
+/**
+ * Selects a form's submission state for `FormSubmitButton` and submits on `SUBMIT_HOTKEY`.
+ * `options` receives that state: `createFormSubmission(form, (s) => ({ enabled: s.canSubmit }))`.
+ */
+export function createFormSubmission(
+  form: { store: StoreSource<SubmissionState>; handleSubmit: () => unknown },
+  options: (submission: SubmissionState) => CreateHotkeyOptionsFor<typeof SUBMIT_HOTKEY>,
+) {
+  const submission = useSelector(form.store, selectSubmissionState);
+  createHotkey(
+    SUBMIT_HOTKEY,
+    () => form.handleSubmit(),
+    () => options(submission()),
+  );
+  return submission;
+}
+
+function selectSubmissionState(state: { canSubmit: boolean; isSubmitting: boolean }) {
   return { canSubmit: state.canSubmit, isSubmitting: state.isSubmitting };
 }
 

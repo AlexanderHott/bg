@@ -2,7 +2,7 @@
 // ships Solid 2 (TanStack/form#2464).
 import { createSignal, onCleanup, onSettled, type Accessor } from "solid-js";
 
-interface StoreSource<TState> {
+export interface StoreSource<TState> {
   get: () => TState;
   subscribe: (listener: (state: TState) => void) => { unsubscribe: () => void };
 }

@@ -13,11 +13,12 @@ import * as v from "valibot";
 import {
   FormSubmitButton,
   FormTextField,
-  selectSubmissionState,
+  createFormSubmission,
+  SUBMIT_HOTKEY,
 } from "@/components/forms/FormControls";
 import { Button, buttonVariants } from "@/components/ui/Button";
 import { Separator } from "@/components/ui/Separator";
-import { useField, useForm, useSelector } from "@/lib/form";
+import { useField, useForm } from "@/lib/form";
 import { destinationAfterAuth, inviteTokenFromHash } from "@/modules/organizations/inviteToken";
 
 import { authenticateWithPasskey } from "../lib/webauthn/browser";
@@ -62,13 +63,7 @@ export function SignInForm() {
   );
   const username = useField(new FieldApi({ form, name: "username" }));
   const password = useField(new FieldApi({ form, name: "password" }));
-  const submission = useSelector(form.store, selectSubmissionState);
-  const submitHotkey = { mod: true, key: "Enter" } satisfies RegisterableHotkey;
-  createHotkey(
-    submitHotkey,
-    () => form.handleSubmit(),
-    () => ({ enabled: submission().canSubmit }),
-  );
+  const submission = createFormSubmission(form, (s) => ({ enabled: s.canSubmit }));
 
   const signUpHotkeySequence = ["S", "U"] satisfies HotkeySequence;
   createHotkey(signUpHotkeySequence, () => navigate({ to: "/sign-up", hash: invite() }));
@@ -128,7 +123,7 @@ export function SignInForm() {
           field={password()}
         />
         <FormSubmitButton {...submission()}>
-          sign in · {formatForDisplay(submitHotkey).toLocaleLowerCase()}
+          sign in · {formatForDisplay(SUBMIT_HOTKEY).toLocaleLowerCase()}
         </FormSubmitButton>
       </form>
 

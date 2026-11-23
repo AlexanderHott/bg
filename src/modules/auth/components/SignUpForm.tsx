@@ -1,10 +1,5 @@
 import { FieldApi, FormApi, revalidateLogic } from "@tanstack/form-core";
-import {
-  createHotkey,
-  formatForDisplay,
-  type HotkeySequence,
-  type RegisterableHotkey,
-} from "@tanstack/solid-hotkeys";
+import { createHotkey, formatForDisplay, type HotkeySequence } from "@tanstack/solid-hotkeys";
 import { Link, useLocation, useNavigate, useRouter } from "@tanstack/solid-router";
 import { useServerFn } from "@tanstack/solid-start";
 import { createSignal, Show } from "solid-js";
@@ -12,10 +7,11 @@ import { createSignal, Show } from "solid-js";
 import {
   FormSubmitButton,
   FormTextField,
-  selectSubmissionState,
+  createFormSubmission,
+  SUBMIT_HOTKEY,
 } from "@/components/forms/FormControls";
 import { buttonVariants } from "@/components/ui/Button";
-import { useField, useForm, useSelector } from "@/lib/form";
+import { useField, useForm } from "@/lib/form";
 import { destinationAfterAuth, inviteTokenFromHash } from "@/modules/organizations/inviteToken";
 
 import { isUsernameAvailableFn, signUpFn } from "../serverFunctions";
@@ -87,13 +83,9 @@ export function SignupForm() {
   const passwordConfirm = useField(
     new FieldApi({ form, name: "passwordConfirm", validators: { onDynamic: PasswordValidator } }),
   );
-  const submission = useSelector(form.store, selectSubmissionState);
-  const submitHotkey = { mod: true, key: "Enter" } satisfies RegisterableHotkey;
-  createHotkey(
-    submitHotkey,
-    () => form.handleSubmit(),
-    () => ({ enabled: submission().canSubmit && !accountCreated() }),
-  );
+  const submission = createFormSubmission(form, (s) => ({
+    enabled: s.canSubmit && !accountCreated(),
+  }));
 
   const signInHotkeySequence = ["S", "I"] satisfies HotkeySequence;
   createHotkey(signInHotkeySequence, () => navigate({ to: "/sign-in", hash: invite() }));
@@ -125,7 +117,7 @@ export function SignupForm() {
             <FormTextField label="password" type="password" field={password()} />
             <FormTextField label="confirm password" type="password" field={passwordConfirm()} />
             <FormSubmitButton {...submission()}>
-              sign up · {formatForDisplay(submitHotkey).toLocaleLowerCase()}
+              sign up · {formatForDisplay(SUBMIT_HOTKEY).toLocaleLowerCase()}
             </FormSubmitButton>
           </form>
         }

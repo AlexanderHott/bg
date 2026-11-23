@@ -1,5 +1,5 @@
 import { FieldApi, FormApi } from "@tanstack/form-core";
-import { createHotkey, formatForDisplay, type RegisterableHotkey } from "@tanstack/solid-hotkeys";
+import { formatForDisplay } from "@tanstack/solid-hotkeys";
 import { useNavigate } from "@tanstack/solid-router";
 import { useServerFn } from "@tanstack/solid-start";
 import * as v from "valibot";
@@ -7,9 +7,10 @@ import * as v from "valibot";
 import {
   FormSubmitButton,
   FormTextField,
-  selectSubmissionState,
+  createFormSubmission,
+  SUBMIT_HOTKEY,
 } from "@/components/forms/FormControls";
-import { useField, useForm, useSelector } from "@/lib/form";
+import { useField, useForm } from "@/lib/form";
 
 import { createAndJoinOrganizationFn } from "../serverFunctions";
 import { OrganizationNameValidator, OrganizationSlugValidator } from "../validators";
@@ -62,16 +63,10 @@ export function CreateOrganizationForm() {
     }),
   );
   const slug = useField(new FieldApi({ form, name: "slug" }));
-  const submission = useSelector(form.store, selectSubmissionState);
-  const submitHotkey = { mod: true, key: "Enter" } satisfies RegisterableHotkey;
-  createHotkey(
-    submitHotkey,
-    () => form.handleSubmit(),
-    () => ({
-      enabled: submission().canSubmit && !submission().isSubmitting,
-      ignoreInputs: false,
-    }),
-  );
+  const submission = createFormSubmission(form, (s) => ({
+    enabled: s.canSubmit && !s.isSubmitting,
+    ignoreInputs: false,
+  }));
 
   return (
     <div class="flex max-w-sm grow flex-col gap-4">
@@ -93,7 +88,7 @@ export function CreateOrganizationForm() {
         />
         <FormTextField label="slug" type="text" autocomplete="off" field={slug()} />
         <FormSubmitButton {...submission()}>
-          create · {formatForDisplay(submitHotkey).toLocaleLowerCase()}
+          create · {formatForDisplay(SUBMIT_HOTKEY).toLocaleLowerCase()}
         </FormSubmitButton>
       </form>
     </div>
