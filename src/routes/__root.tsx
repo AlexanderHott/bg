@@ -1,9 +1,9 @@
+import { HydrationScript } from "@solidjs/web";
 import { TanStackDevtools } from "@tanstack/solid-devtools";
 import { hotkeysDevtoolsPlugin } from "@tanstack/solid-hotkeys-devtools";
 import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from "@tanstack/solid-router";
 import { TanStackRouterDevtools } from "@tanstack/solid-router-devtools";
-import { Suspense } from "solid-js";
-import { HydrationScript } from "solid-js/web";
+import { Loading } from "solid-js";
 
 import styleCss from "../styles.css?url";
 
@@ -22,11 +22,11 @@ function RootComponent() {
         <HeadContent />
       </head>
       <body>
-        <Suspense>
+        <Loading>
           <Outlet />
           <TanStackDevtools plugins={[hotkeysDevtoolsPlugin()]} />
           <TanStackRouterDevtools />
-        </Suspense>
+        </Loading>
         <Scripts />
       </body>
     </html>

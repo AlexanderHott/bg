@@ -1,5 +1,5 @@
+import type { ComponentProps } from "@solidjs/web";
 import { createLink } from "@tanstack/solid-router";
-import type { ComponentProps } from "solid-js";
 
 import { Button, type ButtonProps } from "./Button";
 

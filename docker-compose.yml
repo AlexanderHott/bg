@@ -153,7 +153,8 @@ services:
       - app
 
   minio:
-    image: quay.io/minio/minio:latest
+    # MinIO no longer publishes images; Chainguard builds it from source. Runs as uid 65532.
+    image: cgr.dev/chainguard/minio:latest
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -168,7 +169,8 @@ services:
       - app
 
   minio-init:
-    image: quay.io/minio/mc:latest
+    # Chainguard's minio-client image has no shell; the server image ships mc and sh.
+    image: cgr.dev/chainguard/minio:latest
     depends_on:
       - minio
     environment:

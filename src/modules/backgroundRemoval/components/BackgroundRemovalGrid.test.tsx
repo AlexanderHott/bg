@@ -1,4 +1,4 @@
-import { renderToString } from "solid-js/web";
+import { renderToString } from "@solidjs/web";
 import { expect, test } from "vite-plus/test";
 
 import type { BackgroundRemovalEntry } from "../browser";

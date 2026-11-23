@@ -1,5 +1,11 @@
-import { LoaderCircle } from "lucide-solid";
-import { createUniqueId, Show, type JSX } from "solid-js";
+import { LoaderCircle } from "@lucide/solid";
+import type { JSX } from "@solidjs/web";
+import {
+  createHotkey,
+  type CreateHotkeyOptionsFor,
+  type RegisterableHotkey,
+} from "@tanstack/solid-hotkeys";
+import { createUniqueId, Show } from "solid-js";
 
 import { Button } from "@/components/ui/Button";
 import {
@@ -8,6 +14,7 @@ import {
   TextFieldInput,
   TextFieldLabel,
 } from "@/components/ui/TextField";
+import { type StoreSource, useSelector } from "@/lib/form";
 
 type FormTextFieldProps = {
   label: string;
@@ -16,7 +23,7 @@ type FormTextFieldProps = {
   "data-1p-ignore"?: boolean;
   validatingMessage?: string;
   successMessage?: string;
-  field: () => {
+  field: {
     name: string;
     state: {
       value: string;
@@ -28,7 +35,7 @@ type FormTextFieldProps = {
 };
 
 export function FormTextField(props: FormTextFieldProps) {
-  const field = () => props.field();
+  const field = () => props.field;
   const statusId = createUniqueId();
   const isValidating = () => field().state.meta.isValidating;
   const successMessage = () =>
@@ -48,7 +55,7 @@ export function FormTextField(props: FormTextFieldProps) {
         data-1p-ignore={props["data-1p-ignore"]}
         name={field().name}
         value={field().state.value}
-        aria-busy={isValidating()}
+        aria-busy={isValidating() ? "true" : "false"}
         aria-describedby={isValidating() || successMessage() ? statusId : undefined}
         onBlur={field().handleBlur}
         onInput={(event) => field().handleChange(event.currentTarget.value)}
@@ -96,7 +103,28 @@ export function FormSubmitButton(props: {
   );
 }
 
-export function selectSubmissionState(state: { canSubmit: boolean; isSubmitting: boolean }) {
+export const SUBMIT_HOTKEY = { mod: true, key: "Enter" } satisfies RegisterableHotkey;
+
+type SubmissionState = ReturnType<typeof selectSubmissionState>;
+
+/**
+ * Selects a form's submission state for `FormSubmitButton` and submits on `SUBMIT_HOTKEY`.
+ * `options` receives that state: `createFormSubmission(form, (s) => ({ enabled: s.canSubmit }))`.
+ */
+export function createFormSubmission(
+  form: { store: StoreSource<SubmissionState>; handleSubmit: () => unknown },
+  options: (submission: SubmissionState) => CreateHotkeyOptionsFor<typeof SUBMIT_HOTKEY>,
+) {
+  const submission = useSelector(form.store, selectSubmissionState);
+  createHotkey(
+    SUBMIT_HOTKEY,
+    () => form.handleSubmit(),
+    () => options(submission()),
+  );
+  return submission;
+}
+
+function selectSubmissionState(state: { canSubmit: boolean; isSubmitting: boolean }) {
   return { canSubmit: state.canSubmit, isSubmitting: state.isSubmitting };
 }
 

@@ -145,7 +145,7 @@ function InvitesPage() {
               <input
                 id="invite-link"
                 class="min-w-0 grow rounded-md border p-2 text-sm"
-                readOnly
+                readonly
                 value={invite().url}
                 onFocus={(event) => event.currentTarget.select()}
               />

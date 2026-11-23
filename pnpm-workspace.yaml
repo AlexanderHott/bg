@@ -1,3 +1,6 @@
+# The Solid 2 hotkeys preview (TanStack/hotkeys#213) pulls @tanstack/hotkeys-devtools
+# from pkg.pr.new. Remove once @tanstack/solid-hotkeys ships Solid 2 on npm.
+blockExoticSubdeps: false
 allowBuilds:
   esbuild: true
   lightningcss: true
@@ -15,3 +18,5 @@ peerDependencyRules:
     - vite
   allowedVersions:
     vite: "*"
+minimumReleaseAgeExclude:
+  - "@lucide/solid@1.78.0"

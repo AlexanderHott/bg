@@ -1,4 +1,4 @@
-import { FieldApi, FormApi, revalidateLogic } from "@tanstack/solid-form";
+import { FieldApi, FormApi, revalidateLogic } from "@tanstack/form-core";
 import * as v from "valibot";
 import { afterEach, expect, test, vi } from "vite-plus/test";
 
