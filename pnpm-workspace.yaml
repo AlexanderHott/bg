@@ -5,7 +5,7 @@ allowBuilds:
   protobufjs: false
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@0.3.3
-  vite-plus: 0.3.3
+  vite-plus: 1.7.0
 overrides:
   vite: "catalog:"
 patchedDependencies:
