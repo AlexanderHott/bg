@@ -20,7 +20,7 @@ The worker resolves source metadata again when a download starts. An exact forma
 - Each worker runs one discovery, one inspection, and one download concurrently. A long discovery does not occupy the inspection or download slot.
 - Jobs survive page closes and worker restarts. Transient failures get up to three attempts. Explicit source and format failures require manual retry.
 - Cancel stops pending work and invalidates active leases. The worker terminates yt-dlp and ffmpeg children when it observes cancellation. Completed files remain downloadable.
-- Files remain in MinIO until the batch is deleted. Deletion hides the batch immediately; worker maintenance removes its files. Unreferenced uploads and abandoned scratch directories are collected after 24 hours.
+- Files remain in RustFS until the batch is deleted. Deletion hides the batch immediately; worker maintenance removes its files. Unreferenced uploads and abandoned scratch directories are collected after 24 hours.
 
 Current limits are 50 input URLs and 1,000 discovered items per batch, 4 GB per output, and 12 GB of scratch data per task. Reaching the item limit leaves discovered items available and shows a source error. Inspection has a two-minute timeout, discovery 30 minutes, and downloading and MP4 conversion each have a two-hour timeout. The 4 GB output limit keeps storage uploads within the existing single-request uploader's limit.
 
@@ -30,11 +30,11 @@ Live streams, authenticated sources, private playlists, ZIP exports, and subscri
 
 Compose builds the `media-worker` target for amd64 or arm64. It includes yt-dlp 2026.08.19, ffmpeg, ffprobe, and Node. yt-dlp release downloads are checksum-verified. Update the version and both checksums in `Dockerfile` together when upgrading.
 
-The worker has a separate disk volume, `media_scratch`, and does not load the background-removal model. Budget at least 16 GB of free disk for scratch data plus space for MinIO outputs. The scratch limit is monitored per task; the named volume does not impose a filesystem quota. The worker runs as `nobody` with a 2 GB memory limit and two CPUs in Compose.
+The worker has a separate disk volume, `media_scratch`, and does not load the background-removal model. Budget at least 16 GB of free disk for scratch data plus space for RustFS outputs. The scratch limit is monitored per task; the named volume does not impose a filesystem quota. The worker runs as `nobody` with a 2 GB memory limit and two CPUs in Compose.
 
 For local development:
 
-1. Start the existing Postgres and MinIO dependencies and configure `.env`.
+1. Start the existing Postgres and RustFS dependencies and configure `.env`.
 2. Install the pinned yt-dlp executable, ffmpeg, and ffprobe. The official yt-dlp executable bundles its JavaScript challenge scripts. The project's Node runtime runs them.
 3. Apply the migration with `vp run db:migrate`.
 4. Run `vp run dev:media-worker` and `vp dev` in separate terminals.
@@ -52,4 +52,4 @@ RUN_DB_INTEGRATION=1 vp test src/modules/mediaDownloads/mediaDownloads.integrati
 RUN_MEDIA_WORKER_INTEGRATION=1 vp test src/modules/mediaDownloads/mediaWorker.integration.test.ts
 ```
 
-The worker test also needs local MinIO and ffmpeg/ffprobe. It uses a deterministic executable fixture for yt-dlp, then exercises the real worker, file inspection, S3 upload, and signed download. It creates and cleans its own organization and objects. No browser verification is required by these tests.
+The worker test also needs local RustFS and ffmpeg/ffprobe. It uses a deterministic executable fixture for yt-dlp, then exercises the real worker, file inspection, S3 upload, and signed download. It creates and cleans its own organization and objects. No browser verification is required by these tests.

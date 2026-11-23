@@ -3,7 +3,7 @@ import { randomUUIDv7 } from "node:crypto";
 import { and, asc, count, desc, eq, getColumns, gt, inArray, isNull, lte, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import * as minio from "@/modules/files/minio";
+import * as s3 from "@/modules/files/s3";
 import { files } from "@/modules/files/schema";
 
 import {
@@ -379,7 +379,7 @@ export async function mediaDownloadUrl(organizationId: string, batchId: string, 
       ),
     );
   if (!row) throw new Error("The download is not ready.");
-  const result = await minio.signOpenObject({
+  const result = await s3.signOpenObject({
     key: row.file.storageKey,
     downloadName: row.file.name,
   });
@@ -671,7 +671,7 @@ export async function cleanMediaStorage(cursor?: string) {
       .innerJoin(files, eq(items.outputFileId, files.id))
       .where(eq(items.batchId, batch.id));
     for (const { file } of outputs) {
-      const removed = await minio.deleteObject({ key: file.storageKey });
+      const removed = await s3.deleteObject({ key: file.storageKey });
       if (!removed.ok) throw new Error("Could not clean a deleted media file.");
     }
     await db.transaction(async (tx) => {
@@ -685,14 +685,14 @@ export async function cleanMediaStorage(cursor?: string) {
         );
     });
   }
-  const page = await minio.listObjects({ prefix: "media-downloads/", cursor });
+  const page = await s3.listObjects({ prefix: "media-downloads/", cursor });
   for (const object of page.objects) {
     if (Date.now() - object.lastModified.getTime() < 24 * 60 * 60_000) continue;
     const [file] = await db
       .select({ id: files.id })
       .from(files)
       .where(eq(files.storageKey, object.key));
-    if (!file) await minio.deleteObject({ key: object.key });
+    if (!file) await s3.deleteObject({ key: object.key });
   }
   return page.nextCursor;
 }

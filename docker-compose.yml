@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
       target: web
     depends_on:
-      minio-init:
+      rustfs-init:
         condition: service_completed_successfully
       postgres:
         condition: service_healthy
@@ -15,12 +15,12 @@ services:
       DATABASE_URL: "postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres:5432/bg"
       WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:?WEBAUTHN_RP_ID is required}
       WEBAUTHN_ORIGIN: ${WEBAUTHN_ORIGIN:?WEBAUTHN_ORIGIN is required}
-      S3_INTERNAL_ENDPOINT: http://minio:9000
+      S3_INTERNAL_ENDPOINT: http://rustfs:9000
       S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:?S3_PUBLIC_ENDPOINT is required}
       S3_REGION: us-east-1
       S3_BUCKET: bg-files
-      S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
-      S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      S3_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      S3_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin}
       S3_FORCE_PATH_STYLE: "true"
       NODE_OPTIONS: "--import ./instrumentation.mjs"
       OTEL_ENABLED: "${OTEL_ENABLED:-false}"
@@ -48,7 +48,7 @@ services:
       dockerfile: Dockerfile
       target: worker
     depends_on:
-      minio-init:
+      rustfs-init:
         condition: service_completed_successfully
       postgres:
         condition: service_healthy
@@ -63,12 +63,12 @@ services:
       DATABASE_URL: "postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres:5432/bg"
       WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:?WEBAUTHN_RP_ID is required}
       WEBAUTHN_ORIGIN: ${WEBAUTHN_ORIGIN:?WEBAUTHN_ORIGIN is required}
-      S3_INTERNAL_ENDPOINT: http://minio:9000
+      S3_INTERNAL_ENDPOINT: http://rustfs:9000
       S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:?S3_PUBLIC_ENDPOINT is required}
       S3_REGION: us-east-1
       S3_BUCKET: bg-files
-      S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
-      S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      S3_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      S3_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin}
       S3_FORCE_PATH_STYLE: "true"
       BACKGROUND_REMOVAL_MODEL_PATH: /opt/bg/models/birefnet.onnx
       BACKGROUND_REMOVAL_SCRATCH_PATH: /tmp/bg
@@ -104,7 +104,7 @@ services:
       dockerfile: Dockerfile
       target: media-worker
     depends_on:
-      minio-init:
+      rustfs-init:
         condition: service_completed_successfully
       postgres:
         condition: service_healthy
@@ -117,12 +117,12 @@ services:
       DATABASE_URL: "postgresql://postgres:${POSTGRES_PASSWORD:-password}@postgres:5432/bg"
       WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:?WEBAUTHN_RP_ID is required}
       WEBAUTHN_ORIGIN: ${WEBAUTHN_ORIGIN:?WEBAUTHN_ORIGIN is required}
-      S3_INTERNAL_ENDPOINT: http://minio:9000
+      S3_INTERNAL_ENDPOINT: http://rustfs:9000
       S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:?S3_PUBLIC_ENDPOINT is required}
       S3_REGION: us-east-1
       S3_BUCKET: bg-files
-      S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
-      S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      S3_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      S3_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin}
       S3_FORCE_PATH_STYLE: "true"
       MEDIA_SCRATCH_PATH: /var/tmp/bg-media
     volumes:
@@ -152,34 +152,32 @@ services:
     networks:
       - app
 
-  minio:
-    # MinIO no longer publishes images; Chainguard builds it from source. Runs as uid 65532.
-    image: cgr.dev/chainguard/minio:latest
+  rustfs:
+    image: rustfs/rustfs:1.0.6
     restart: unless-stopped
-    command: server /data --console-address ":9001"
     environment:
-      MINIO_API_CORS_ALLOW_ORIGIN: ${WEBAUTHN_ORIGIN:?WEBAUTHN_ORIGIN is required}
-      MINIO_API_STALE_UPLOADS_CLEANUP_INTERVAL: 1h
-      MINIO_API_STALE_UPLOADS_EXPIRY: 24h
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin}
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_CORS_ALLOWED_ORIGINS: ${WEBAUTHN_ORIGIN:?WEBAUTHN_ORIGIN is required}
+      RUSTFS_API_STALE_UPLOADS_CLEANUP_INTERVAL: 1h
+      RUSTFS_API_STALE_UPLOADS_EXPIRY: 24h
     volumes:
-      - minio_data:/data
+      - rustfs_data:/data
     networks:
       - app
 
-  minio-init:
-    # Chainguard's minio-client image has no shell; the server image ships mc and sh.
-    image: cgr.dev/chainguard/minio:latest
+  rustfs-init:
+    image: rustfs/rc:v0.1.38
     depends_on:
-      - minio
+      - rustfs
     environment:
-      MINIO_BUCKET: bg-files
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      RUSTFS_BUCKET: bg-files
+      RUSTFS_ENDPOINT: http://rustfs:9000
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin}
     volumes:
-      - ./infra/minio/init.sh:/init.sh:ro
+      - ./infra/rustfs/init.sh:/init.sh:ro
     entrypoint: ["/bin/sh", "/init.sh"]
     networks:
       - app
@@ -187,7 +185,7 @@ services:
 volumes:
   media_scratch:
   postgres_data:
-  minio_data:
+  rustfs_data:
 
 networks:
   app:

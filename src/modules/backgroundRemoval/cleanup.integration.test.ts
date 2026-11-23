@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/tes
 
 import { db } from "@/db";
 import { err, ok } from "@/lib/result";
-import * as minio from "@/modules/files/minio";
+import * as s3 from "@/modules/files/s3";
 import * as fileSchema from "@/modules/files/schema";
 import * as organizationSchema from "@/modules/organizations/schema";
 
@@ -20,8 +20,8 @@ import {
 } from "./backgroundRemovals";
 import * as backgroundRemovalSchema from "./schema";
 
-vi.mock("@/modules/files/minio", async (importOriginal) => ({
-  ...(await importOriginal<typeof minio>()),
+vi.mock("@/modules/files/s3", async (importOriginal) => ({
+  ...(await importOriginal<typeof s3>()),
   deleteObject: vi.fn(async () => ok(undefined)),
   putObjectFromFile: vi.fn(async () => ok(undefined)),
   listObjects: vi.fn(async () => ({ objects: [], nextCursor: undefined })),
@@ -102,9 +102,9 @@ describe.runIf(process.env.RUN_DB_INTEGRATION === "1")("background-removal clean
     const publication = await claimPublication();
     const output = await publishBackgroundRemovalOutput(publication);
     if (!output.ok) throw new Error(output.error.kind);
-    expect(minio.putObjectFromFile).toHaveBeenCalledTimes(3);
+    expect(s3.putObjectFromFile).toHaveBeenCalledTimes(3);
     await expect(publishBackgroundRemovalOutput(publication)).resolves.toEqual(output);
-    expect(minio.putObjectFromFile).toHaveBeenCalledTimes(3);
+    expect(s3.putObjectFromFile).toHaveBeenCalledTimes(3);
 
     const summary = await getBackgroundRemoval({ organizationId, backgroundRemovalId: first.id });
     if (!summary.ok) throw new Error(summary.error.kind);
@@ -116,24 +116,24 @@ describe.runIf(process.env.RUN_DB_INTEGRATION === "1")("background-removal clean
     const second = await create();
     const secondOutput = await publishBackgroundRemovalOutput(await claimPublication());
     expect(secondOutput.ok).toBe(true);
-    expect(minio.putObjectFromFile).toHaveBeenCalledTimes(5);
+    expect(s3.putObjectFromFile).toHaveBeenCalledTimes(5);
     await remove(first.id);
-    expect(minio.deleteObject).not.toHaveBeenCalledWith({ key: inputThumbnailKey });
-    vi.mocked(minio.listObjects).mockResolvedValueOnce({
+    expect(s3.deleteObject).not.toHaveBeenCalledWith({ key: inputThumbnailKey });
+    vi.mocked(s3.listObjects).mockResolvedValueOnce({
       objects: [{ key: inputThumbnailKey, lastModified: new Date(0) }],
       nextCursor: undefined,
     });
     await cleanUnreferencedBackgroundRemovalObjects();
-    expect(minio.deleteObject).not.toHaveBeenCalledWith({ key: inputThumbnailKey });
+    expect(s3.deleteObject).not.toHaveBeenCalledWith({ key: inputThumbnailKey });
     await remove(second.id);
-    expect(minio.deleteObject).toHaveBeenCalledWith({ key: inputThumbnailKey });
+    expect(s3.deleteObject).toHaveBeenCalledWith({ key: inputThumbnailKey });
   });
 
   test("keeps the successful output when a thumbnail upload fails", async () => {
     const removal = await create();
     const publication = await claimPublication();
     const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
-    vi.mocked(minio.putObjectFromFile)
+    vi.mocked(s3.putObjectFromFile)
       .mockResolvedValueOnce(ok(undefined))
       .mockResolvedValueOnce(err({ kind: "PUT_OBJECT_FAILED", cause: new Error("offline") }));
     const output = await publishBackgroundRemovalOutput(publication);
@@ -158,9 +158,7 @@ describe.runIf(process.env.RUN_DB_INTEGRATION === "1")("background-removal clean
       await uploads.promise;
       return ok(undefined);
     }
-    vi.mocked(minio.putObjectFromFile)
-      .mockImplementationOnce(upload)
-      .mockImplementationOnce(upload);
+    vi.mocked(s3.putObjectFromFile).mockImplementationOnce(upload).mockImplementationOnce(upload);
     const results = await Promise.all([
       publishBackgroundRemovalOutput(first),
       publishBackgroundRemovalOutput(second),
@@ -171,10 +169,8 @@ describe.runIf(process.env.RUN_DB_INTEGRATION === "1")("background-removal clean
       .from(fileSchema.files)
       .where(eq(fileSchema.files.id, inputFileId));
     expect(input?.thumbnailStorageKey).toBeTruthy();
-    const uploadedKeys = vi
-      .mocked(minio.putObjectFromFile)
-      .mock.calls.map(([options]) => options.key);
-    vi.mocked(minio.listObjects).mockResolvedValueOnce({
+    const uploadedKeys = vi.mocked(s3.putObjectFromFile).mock.calls.map(([options]) => options.key);
+    vi.mocked(s3.listObjects).mockResolvedValueOnce({
       objects: uploadedKeys.map((key) => ({ key, lastModified: new Date(0) })),
       nextCursor: undefined,
     });
@@ -183,7 +179,7 @@ describe.runIf(process.env.RUN_DB_INTEGRATION === "1")("background-removal clean
       (key) => key.endsWith("input-thumbnail.webp") && key !== input?.thumbnailStorageKey,
     );
     expect(unused).toHaveLength(1);
-    expect(minio.deleteObject).toHaveBeenCalledExactlyOnceWith({ key: unused[0] });
+    expect(s3.deleteObject).toHaveBeenCalledExactlyOnceWith({ key: unused[0] });
   });
 
   test.each(["expired", "deleted"])(
@@ -191,7 +187,7 @@ describe.runIf(process.env.RUN_DB_INTEGRATION === "1")("background-removal clean
     async (reason) => {
       const removal = await create();
       const publication = await claimPublication();
-      vi.mocked(minio.putObjectFromFile).mockImplementationOnce(async () => {
+      vi.mocked(s3.putObjectFromFile).mockImplementationOnce(async () => {
         if (reason === "deleted") {
           await deleteBackgroundRemoval({ organizationId, backgroundRemovalId: removal.id });
         } else {
@@ -216,14 +212,14 @@ describe.runIf(process.env.RUN_DB_INTEGRATION === "1")("background-removal clean
       if (reason === "deleted")
         await cleanDeletedBackgroundRemoval({ backgroundRemovalId: removal.id });
       const uploadedKeys = vi
-        .mocked(minio.putObjectFromFile)
+        .mocked(s3.putObjectFromFile)
         .mock.calls.map(([options]) => options.key);
-      vi.mocked(minio.listObjects).mockResolvedValueOnce({
+      vi.mocked(s3.listObjects).mockResolvedValueOnce({
         objects: uploadedKeys.map((key) => ({ key, lastModified: new Date(0) })),
         nextCursor: undefined,
       });
       await cleanUnreferencedBackgroundRemovalObjects();
-      for (const key of uploadedKeys) expect(minio.deleteObject).toHaveBeenCalledWith({ key });
+      for (const key of uploadedKeys) expect(s3.deleteObject).toHaveBeenCalledWith({ key });
     },
   );
 
@@ -234,12 +230,12 @@ describe.runIf(process.env.RUN_DB_INTEGRATION === "1")("background-removal clean
     expect(
       await db.select().from(fileSchema.files).where(eq(fileSchema.files.id, inputFileId)),
     ).toHaveLength(1);
-    expect(minio.deleteObject).not.toHaveBeenCalled();
+    expect(s3.deleteObject).not.toHaveBeenCalled();
     await remove(second.id);
     expect(
       await db.select().from(fileSchema.files).where(eq(fileSchema.files.id, inputFileId)),
     ).toHaveLength(0);
-    expect(minio.deleteObject).toHaveBeenCalledWith({ key: inputStorageKey });
+    expect(s3.deleteObject).toHaveBeenCalledWith({ key: inputStorageKey });
   });
 
   test("preserves an output reused as another request's input", async () => {
@@ -258,7 +254,7 @@ describe.runIf(process.env.RUN_DB_INTEGRATION === "1")("background-removal clean
     });
     if (!output.ok) throw new Error(output.error.kind);
     const thumbnailKey = output.value.storageKey.replace("output.png", "output-thumbnail.webp");
-    vi.mocked(minio.listObjects).mockResolvedValueOnce({
+    vi.mocked(s3.listObjects).mockResolvedValueOnce({
       objects: [output.value.storageKey, thumbnailKey].map((key) => ({
         key,
         lastModified: new Date(0),
@@ -266,14 +262,14 @@ describe.runIf(process.env.RUN_DB_INTEGRATION === "1")("background-removal clean
       nextCursor: undefined,
     });
     await cleanUnreferencedBackgroundRemovalObjects();
-    expect(minio.deleteObject).not.toHaveBeenCalled();
+    expect(s3.deleteObject).not.toHaveBeenCalled();
     const second = await create(output.value.fileId);
     await remove(first.id);
-    expect(minio.deleteObject).not.toHaveBeenCalledWith({ key: output.value.storageKey });
-    expect(minio.deleteObject).not.toHaveBeenCalledWith({ key: thumbnailKey });
+    expect(s3.deleteObject).not.toHaveBeenCalledWith({ key: output.value.storageKey });
+    expect(s3.deleteObject).not.toHaveBeenCalledWith({ key: thumbnailKey });
     await remove(second.id);
-    expect(minio.deleteObject).toHaveBeenCalledWith({ key: output.value.storageKey });
-    expect(minio.deleteObject).toHaveBeenCalledWith({ key: thumbnailKey });
+    expect(s3.deleteObject).toHaveBeenCalledWith({ key: output.value.storageKey });
+    expect(s3.deleteObject).toHaveBeenCalledWith({ key: thumbnailKey });
   });
 
   test("serializes request creation with cleanup of the same input", async () => {
@@ -289,7 +285,7 @@ describe.runIf(process.env.RUN_DB_INTEGRATION === "1")("background-removal clean
       .where(eq(fileSchema.files.id, inputFileId));
     if (created.ok) {
       expect(files).toHaveLength(1);
-      expect(minio.deleteObject).not.toHaveBeenCalledWith({ key: inputStorageKey });
+      expect(s3.deleteObject).not.toHaveBeenCalledWith({ key: inputStorageKey });
     } else {
       expect(created.error.kind).toBe("INPUT_NOT_FOUND");
       expect(files).toHaveLength(0);
@@ -298,17 +294,17 @@ describe.runIf(process.env.RUN_DB_INTEGRATION === "1")("background-removal clean
 
   test("retries failed storage deletion through the orphan sweep", async () => {
     const removal = await create();
-    vi.mocked(minio.deleteObject).mockResolvedValueOnce(
+    vi.mocked(s3.deleteObject).mockResolvedValueOnce(
       err({ kind: "DELETE_OBJECT_FAILED", cause: new Error("offline") }),
     );
     await remove(removal.id);
     const now = new Date();
-    vi.mocked(minio.listObjects).mockResolvedValueOnce({
+    vi.mocked(s3.listObjects).mockResolvedValueOnce({
       objects: [{ key: inputStorageKey, lastModified: new Date(now.getTime() - 3_600_001) }],
       nextCursor: "next-page",
     });
     expect(await cleanUnreferencedBackgroundRemovalObjects({ now })).toBe("next-page");
-    expect(minio.deleteObject).toHaveBeenCalledTimes(2);
+    expect(s3.deleteObject).toHaveBeenCalledTimes(2);
   });
 
   test("sweeps orphan uploads but protects live leases, referenced files, and recent objects", async () => {
@@ -321,7 +317,7 @@ describe.runIf(process.env.RUN_DB_INTEGRATION === "1")("background-removal clean
     const orphan = `${prefix}${randomUUIDv7()}/leases/${randomUUIDv7()}/output.png`;
     const recent = `${prefix}${randomUUIDv7()}/leases/${randomUUIDv7()}/output.png`;
     const lastModified = new Date(now.getTime() - 3_600_001);
-    vi.mocked(minio.listObjects).mockResolvedValueOnce({
+    vi.mocked(s3.listObjects).mockResolvedValueOnce({
       objects: [
         { key: active, lastModified },
         { key: active.replace("output.png", "input-thumbnail.webp"), lastModified },
@@ -337,13 +333,13 @@ describe.runIf(process.env.RUN_DB_INTEGRATION === "1")("background-removal clean
       nextCursor: undefined,
     });
     await cleanUnreferencedBackgroundRemovalObjects({ now, cursor: "previous-page" });
-    expect(minio.listObjects).toHaveBeenCalledWith({
+    expect(s3.listObjects).toHaveBeenCalledWith({
       prefix: "organizations/",
       cursor: "previous-page",
     });
-    expect(minio.deleteObject).toHaveBeenCalledTimes(3);
+    expect(s3.deleteObject).toHaveBeenCalledTimes(3);
     for (const name of ["output.png", "input-thumbnail.webp", "output-thumbnail.webp"]) {
-      expect(minio.deleteObject).toHaveBeenCalledWith({ key: orphan.replace("output.png", name) });
+      expect(s3.deleteObject).toHaveBeenCalledWith({ key: orphan.replace("output.png", name) });
     }
   });
 });

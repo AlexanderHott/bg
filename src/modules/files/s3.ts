@@ -41,6 +41,8 @@ const internalClient = new S3Client({
 const publicSigningClient = new S3Client({
   ...sharedConfig,
   endpoint: envServer.S3_PUBLIC_ENDPOINT,
+  // The default signs the empty body's CRC32 into presigned part URLs, which RustFS rejects.
+  requestChecksumCalculation: "WHEN_REQUIRED",
 });
 
 export type StartMultipartUploadError =

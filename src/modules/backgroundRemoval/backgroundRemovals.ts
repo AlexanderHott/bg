@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { err, ok, type Result } from "@/lib/result";
 import { getReadyImages, type ReadyImage } from "@/modules/files/files";
 import { isSupportedImageMediaType } from "@/modules/files/images";
-import * as minio from "@/modules/files/minio";
+import * as s3 from "@/modules/files/s3";
 import * as fileSchema from "@/modules/files/schema";
 import type { ImageThumbnail } from "@/modules/files/thumbnailAdapter";
 
@@ -554,7 +554,7 @@ export async function publishBackgroundRemovalOutput(options: {
   }
 
   const storageKey = createOutputStorageKey(leasedAttempt, options.leaseToken);
-  const uploadResult = await minio.putObjectFromFile({
+  const uploadResult = await s3.putObjectFromFile({
     key: storageKey,
     path: options.path,
     sizeBytes: options.sizeBytes,
@@ -658,7 +658,7 @@ export async function publishBackgroundRemovalOutput(options: {
   async function uploadThumbnail(thumbnail: ImageThumbnail | undefined, name: string) {
     if (!thumbnail) return undefined;
     const key = storageKey.replace(/output\.png$/, name);
-    const result = await minio.putObjectFromFile({
+    const result = await s3.putObjectFromFile({
       ...thumbnail,
       key,
       mediaType: "image/webp",
@@ -741,8 +741,8 @@ export async function cleanDeletedBackgroundRemoval(options?: { backgroundRemova
   });
   if (!deletedFiles) return false;
   for (const file of deletedFiles) {
-    await minio.deleteObject({ key: file.storageKey });
-    if (file.thumbnailStorageKey) await minio.deleteObject({ key: file.thumbnailStorageKey });
+    await s3.deleteObject({ key: file.storageKey });
+    if (file.thumbnailStorageKey) await s3.deleteObject({ key: file.thumbnailStorageKey });
   }
   return true;
 }
@@ -754,7 +754,7 @@ export async function cleanUnreferencedBackgroundRemovalObjects(options?: {
 }) {
   const now = options?.now ?? new Date();
   const oldestAllowed = new Date(now.getTime() - 60 * 60 * 1_000);
-  const page = await minio.listObjects({ prefix: "organizations/", cursor: options?.cursor });
+  const page = await s3.listObjects({ prefix: "organizations/", cursor: options?.cursor });
   for (const object of page.objects) {
     if (object.lastModified > oldestAllowed) continue;
     const output =
@@ -790,7 +790,7 @@ export async function cleanUnreferencedBackgroundRemovalObjects(options?: {
           ),
         )
         .limit(1);
-      if (!file) await minio.deleteObject({ key: object.key });
+      if (!file) await s3.deleteObject({ key: object.key });
     });
   }
   return page.nextCursor;

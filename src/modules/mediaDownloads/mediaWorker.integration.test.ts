@@ -10,7 +10,7 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, expect, test } from "vite-plus/test";
 
 import { db } from "@/db";
-import * as minio from "@/modules/files/minio";
+import * as s3 from "@/modules/files/s3";
 import { files } from "@/modules/files/schema";
 import { organizations } from "@/modules/organizations/schema";
 
@@ -88,14 +88,14 @@ afterAll(async () => {
     await stopped;
   }
   const outputs = await db.select().from(files).where(eq(files.organizationId, organizationId));
-  for (const file of outputs) await minio.deleteObject({ key: file.storageKey });
+  for (const file of outputs) await s3.deleteObject({ key: file.storageKey });
   await db.delete(mediaBatches).where(eq(mediaBatches.organizationId, organizationId));
   await db.delete(organizations).where(eq(organizations.id, organizationId));
   await db.$client.end();
   if (directory) await rm(directory, { recursive: true, force: true });
 });
 
-test("discovers progressively, inspects a draft, and publishes the selected media through MinIO", async () => {
+test("discovers progressively, inspects a draft, and publishes the selected media through RustFS", async () => {
   const batchId = await createMediaBatch({
     organizationId,
     requestId: randomUUIDv7(),

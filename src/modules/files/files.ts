@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { err, ok, tryAsync, type Result } from "@/lib/result";
 
 import { isSupportedImageMediaType, SUPPORTED_IMAGE_MEDIA_TYPES } from "./images";
-import * as minio from "./minio";
+import * as s3 from "./s3";
 import * as fileSchema from "./schema";
 
 const PART_SIZE_BYTES = 16 * 1024 * 1024;
@@ -139,7 +139,7 @@ export async function beginFileUpload(
 
   const fileId = randomUUIDv7();
   const storageKey = createStorageKey(options.organizationId, fileId);
-  const startResult = await minio.startMultipartUpload({
+  const startResult = await s3.startMultipartUpload({
     key: storageKey,
     mediaType: options.mediaType,
     signal: options.signal,
@@ -155,7 +155,7 @@ export async function beginFileUpload(
   }
   if (insertResult.value) return prepareFileUpload(insertResult.value, options.signal);
 
-  await minio.abortMultipartUpload({ key: storageKey, uploadId: bucketUploadId });
+  await s3.abortMultipartUpload({ key: storageKey, uploadId: bucketUploadId });
   const winner = await loadFileByRequestId(options.organizationId, options.requestId);
   if (!winner) throw new Error("Conflicting file request disappeared");
   return resumeFileUpload(winner, options);
@@ -213,11 +213,11 @@ async function recoverFailedFileInsert(
 
   const recovered = recoveryResult.value;
   if (!recovered) {
-    await minio.abortMultipartUpload({ key: storageKey, uploadId: bucketUploadId });
+    await s3.abortMultipartUpload({ key: storageKey, uploadId: bucketUploadId });
     return databaseFailure(insertError);
   }
   if (recovered.upload?.bucketUploadId !== bucketUploadId) {
-    await minio.abortMultipartUpload({ key: storageKey, uploadId: bucketUploadId });
+    await s3.abortMultipartUpload({ key: storageKey, uploadId: bucketUploadId });
   }
   return resumeFileUpload(recovered, options);
 }
@@ -264,7 +264,7 @@ export async function completeFileUpload(options: {
     return err({ kind: "INVALID_UPLOAD_PARTS" });
   }
 
-  const uploadedPartsResult = await minio.listUploadedParts({
+  const uploadedPartsResult = await s3.listUploadedParts({
     key: fileWithUpload.file.storageKey,
     uploadId: fileWithUpload.upload.bucketUploadId,
     signal: options.signal,
@@ -291,7 +291,7 @@ export async function completeFileUpload(options: {
     return err({ kind: "INVALID_UPLOAD_PARTS" });
   }
 
-  const completeResult = await minio.completeMultipartUpload({
+  const completeResult = await s3.completeMultipartUpload({
     key: fileWithUpload.file.storageKey,
     uploadId: fileWithUpload.upload.bucketUploadId,
     parts: uploadedParts,
@@ -325,7 +325,7 @@ async function prepareFileUpload(
   const upload = fileWithUpload.upload;
   if (!upload) return err({ kind: "INVALID_UPLOAD_STATE" });
 
-  const uploadedPartsResult = await minio.listUploadedParts({
+  const uploadedPartsResult = await s3.listUploadedParts({
     key: fileWithUpload.file.storageKey,
     uploadId: upload.bucketUploadId,
     signal,
@@ -408,7 +408,7 @@ async function signMissingUploadParts(
   for (let partNumber = 1; partNumber <= partCount; partNumber += 1) {
     if (uploadedPartNumbers.has(partNumber)) continue;
 
-    const signedPartResult = await minio.signUploadPart({
+    const signedPartResult = await s3.signUploadPart({
       key: file.storageKey,
       uploadId: upload.bucketUploadId,
       partNumber,
@@ -437,7 +437,7 @@ async function restartFileUpload(
     fileWithUpload.file.organizationId,
     fileWithUpload.file.id,
   );
-  const startResult = await minio.startMultipartUpload({
+  const startResult = await s3.startMultipartUpload({
     key: newStorageKey,
     mediaType: fileWithUpload.file.mediaType,
     signal,
@@ -463,7 +463,7 @@ async function restartFileUpload(
     return recoverConflictingUploadRestart(fileWithUpload, signal, newStorageKey, newUploadId);
   }
 
-  await minio.abortMultipartUpload({ key: oldStorageKey, uploadId: oldUploadId });
+  await s3.abortMultipartUpload({ key: oldStorageKey, uploadId: oldUploadId });
   return prepareFileUpload(updateResult.value, signal);
 }
 
@@ -524,13 +524,13 @@ async function recoverFailedUploadRestart(
 
   const recovered = recoveryResult.value;
   if (!recovered) {
-    await minio.abortMultipartUpload({ key: newStorageKey, uploadId: newUploadId });
+    await s3.abortMultipartUpload({ key: newStorageKey, uploadId: newUploadId });
     return err({ kind: "FILE_NOT_FOUND" });
   }
 
   const restartWon =
     recovered.file.storageKey === newStorageKey && recovered.upload?.bucketUploadId === newUploadId;
-  await minio.abortMultipartUpload(
+  await s3.abortMultipartUpload(
     restartWon
       ? { key: oldStorageKey, uploadId: oldUploadId }
       : { key: newStorageKey, uploadId: newUploadId },
@@ -544,7 +544,7 @@ async function recoverConflictingUploadRestart(
   newStorageKey: string,
   newUploadId: string,
 ): Promise<Result<FileUploadPlan, FileError>> {
-  await minio.abortMultipartUpload({ key: newStorageKey, uploadId: newUploadId });
+  await s3.abortMultipartUpload({ key: newStorageKey, uploadId: newUploadId });
   const current = await loadFileById(fileWithUpload.file.organizationId, fileWithUpload.file.id);
   if (!current) return err({ kind: "FILE_NOT_FOUND" });
   return prepareFileUpload(current, signal);
@@ -574,7 +574,7 @@ async function completedObjectSize(
   file: fileSchema.File,
   signal: AbortSignal,
 ): Promise<Result<number, FileError>> {
-  const statResult = await minio.statObject({ key: file.storageKey, signal });
+  const statResult = await s3.statObject({ key: file.storageKey, signal });
   if (!statResult.ok) {
     if (statResult.error.kind === "OBJECT_NOT_FOUND") return err({ kind: "UPLOAD_NOT_FOUND" });
     return storageFailure(statResult.error);
@@ -633,8 +633,7 @@ async function reconcileConcurrentReadyUpdate(
   if (!current) return err({ kind: "FILE_NOT_FOUND" });
 
   const currentReadyFile = toReadyFile(current.file);
-  if (current.file.storageKey !== file.storageKey)
-    await minio.deleteObject({ key: file.storageKey });
+  if (current.file.storageKey !== file.storageKey) await s3.deleteObject({ key: file.storageKey });
   if (!currentReadyFile) return err({ kind: "INVALID_UPLOAD_STATE" });
 
   return ok(currentReadyFile);
@@ -731,13 +730,13 @@ async function toReadyImage(file: fileSchema.File): Promise<ReadyImage | undefin
     return undefined;
   }
 
-  const urlResult = await minio.signOpenObject({ key: file.storageKey });
+  const urlResult = await s3.signOpenObject({ key: file.storageKey });
   if (!urlResult.ok) {
     return storageFailure(urlResult.error);
   }
 
   const thumbnailResult = file.thumbnailStorageKey
-    ? await minio.signOpenObject({ key: file.thumbnailStorageKey })
+    ? await s3.signOpenObject({ key: file.thumbnailStorageKey })
     : undefined;
   if (thumbnailResult && !thumbnailResult.ok) {
     console.warn("Could not sign image thumbnail", {

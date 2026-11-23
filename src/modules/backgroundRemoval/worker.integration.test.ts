@@ -8,7 +8,7 @@ import sharp from "sharp";
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
 
 import { db } from "@/db";
-import * as minio from "@/modules/files/minio";
+import * as s3 from "@/modules/files/s3";
 import * as fileSchema from "@/modules/files/schema";
 import * as organizationSchema from "@/modules/organizations/schema";
 
@@ -41,7 +41,7 @@ describe.runIf(runWorkerTest)("background-removal worker", () => {
       .toFile(inputPath);
     const inputStat = await stat(inputPath);
 
-    const upload = await minio.putObjectFromFile({
+    const upload = await s3.putObjectFromFile({
       key: inputStorageKey,
       path: inputPath,
       sizeBytes: inputStat.size,
@@ -75,9 +75,9 @@ describe.runIf(runWorkerTest)("background-removal worker", () => {
     await db
       .delete(organizationSchema.organizations)
       .where(eq(organizationSchema.organizations.id, organizationId));
-    await minio.deleteObject({ key: inputStorageKey });
-    if (outputStorageKey) await minio.deleteObject({ key: outputStorageKey });
-    for (const key of thumbnailStorageKeys) await minio.deleteObject({ key });
+    await s3.deleteObject({ key: inputStorageKey });
+    if (outputStorageKey) await s3.deleteObject({ key: outputStorageKey });
+    for (const key of thumbnailStorageKeys) await s3.deleteObject({ key });
     if (scratch) await rm(scratch, { recursive: true, force: true });
   });
 
@@ -104,7 +104,7 @@ describe.runIf(runWorkerTest)("background-removal worker", () => {
     outputStorageKey = outputFile.storageKey;
 
     const outputPath = join(scratch, "output.png");
-    const download = await minio.downloadObjectToFile({
+    const download = await s3.downloadObjectToFile({
       key: outputFile.storageKey,
       path: outputPath,
     });
@@ -129,7 +129,7 @@ describe.runIf(runWorkerTest)("background-removal worker", () => {
       if (!file.thumbnailStorageKey) throw new Error("Worker did not publish thumbnail");
       thumbnailStorageKeys.push(file.thumbnailStorageKey);
       const path = join(scratch, `${file.id}.webp`);
-      const thumbnail = await minio.downloadObjectToFile({ key: file.thumbnailStorageKey, path });
+      const thumbnail = await s3.downloadObjectToFile({ key: file.thumbnailStorageKey, path });
       expect(thumbnail.ok).toBe(true);
       expect(await sharp(path).metadata()).toMatchObject({
         format: "webp",

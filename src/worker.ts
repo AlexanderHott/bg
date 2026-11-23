@@ -14,7 +14,7 @@ import {
 import { createBiRefNetAdapter } from "@/modules/backgroundRemoval/modelAdapter";
 import { ATTEMPT_LEASE_MS } from "@/modules/backgroundRemoval/policy";
 import type { BackgroundRemovalFailureCode } from "@/modules/backgroundRemoval/schema";
-import { downloadObjectToFile } from "@/modules/files/minio";
+import { downloadObjectToFile } from "@/modules/files/s3";
 
 const MODEL_PATH = process.env.BACKGROUND_REMOVAL_MODEL_PATH ?? "/opt/bg/models/birefnet.onnx";
 const SCRATCH_ROOT = process.env.BACKGROUND_REMOVAL_SCRATCH_PATH ?? "/tmp/bg";

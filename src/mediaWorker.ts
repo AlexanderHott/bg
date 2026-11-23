@@ -2,7 +2,7 @@ import { mkdtemp, mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
-import * as minio from "@/modules/files/minio";
+import * as s3 from "@/modules/files/s3";
 import * as downloads from "@/modules/mediaDownloads/mediaDownloads";
 import { startMediaProxy } from "@/modules/mediaDownloads/networkProxy";
 import { MediaError, type MediaProgress } from "@/modules/mediaDownloads/policy";
@@ -144,7 +144,7 @@ async function processTask(
         sizeBytes: output.sizeBytes,
       });
       const uploadedKey = `media-downloads/${batch.id}/${task.id}/${task.leaseToken}/output${extname(output.path)}`;
-      const upload = await minio.putObjectFromFile({ key: uploadedKey, ...output, signal });
+      const upload = await s3.putObjectFromFile({ key: uploadedKey, ...output, signal });
       if (!upload.ok) {
         console.error("Media worker upload failed", { ...context, error: upload.error });
         throw new MediaError("network", "Could not save the downloaded file. Try again.");
