@@ -1,7 +1,7 @@
 import {
-  createHotkeySequences,
+  createHotkeys,
   DEFAULT_SEQUENCE_TIMEOUT,
-  formatHotkeySequence,
+  formatForDisplay,
   type HotkeySequence,
 } from "@tanstack/solid-hotkeys";
 import { createFileRoute } from "@tanstack/solid-router";
@@ -30,9 +30,9 @@ function RouteComponent() {
   );
   let pendingSelection: ReturnType<typeof setTimeout> | undefined;
   onCleanup(() => clearTimeout(pendingSelection));
-  createHotkeySequences(() =>
+  createHotkeys(() =>
     organizationLinks().map(({ organization, number, sequence }) => ({
-      sequence,
+      hotkey: sequence,
       callback: () => {
         clearTimeout(pendingSelection);
         const open = () => navigate({ to: "/$orgSlug", params: { orgSlug: organization.slug } });
@@ -83,7 +83,7 @@ function RouteComponent() {
                   <div class="text-muted-foreground truncate text-sm">/{organization.slug}</div>
                 </div>
                 <ButtonLink variant="link" to="/$orgSlug" params={{ orgSlug: organization.slug }}>
-                  open · {formatHotkeySequence(sequence).toLocaleLowerCase()}
+                  open · {formatForDisplay(sequence).toLocaleLowerCase()}
                 </ButtonLink>
               </li>
             )}

@@ -1,9 +1,7 @@
 import { createForm, formOptions } from "@tanstack/solid-form";
 import {
   createHotkey,
-  createHotkeySequence,
   formatForDisplay,
-  formatHotkeySequence,
   type HotkeySequence,
   type RegisterableHotkey,
 } from "@tanstack/solid-hotkeys";
@@ -80,7 +78,7 @@ export function SignInForm() {
   );
 
   const signUpHotkeySequence = ["S", "U"] satisfies HotkeySequence;
-  createHotkeySequence(signUpHotkeySequence, () => navigate({ to: "/sign-up", hash: invite() }));
+  createHotkey(signUpHotkeySequence, () => navigate({ to: "/sign-up", hash: invite() }));
 
   async function signInWithPasskey() {
     if (isPasskeyPending()) return;
@@ -170,7 +168,7 @@ export function SignInForm() {
       <p class="text-muted-foreground text-sm">
         don't have an account?{" "}
         <Link class={buttonVariants({ variant: "link" })} to="/sign-up" hash={invite()}>
-          sign up · {formatHotkeySequence(signUpHotkeySequence).toLocaleLowerCase()}
+          sign up · {formatForDisplay(signUpHotkeySequence).toLocaleLowerCase()}
         </Link>
       </p>
     </div>

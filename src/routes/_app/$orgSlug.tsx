@@ -1,8 +1,4 @@
-import {
-  createHotkeySequence,
-  formatHotkeySequence,
-  type HotkeySequence,
-} from "@tanstack/solid-hotkeys";
+import { createHotkey, formatForDisplay, type HotkeySequence } from "@tanstack/solid-hotkeys";
 import { createFileRoute, Outlet, redirect } from "@tanstack/solid-router";
 
 import { ButtonLink } from "@/components/ui/ButtonLink";
@@ -31,16 +27,16 @@ function RouteComponent() {
   const homeHotkeySequence = ["G", "H"] satisfies HotkeySequence;
   const removeBackgroundHotkeySequence = ["G", "B"] satisfies HotkeySequence;
   const invitesHotkeySequence = ["G", "I"] satisfies HotkeySequence;
-  createHotkeySequence(homeHotkeySequence, () =>
+  createHotkey(homeHotkeySequence, () =>
     navigate({ to: "/$orgSlug", params: { orgSlug: context().organization.slug } }),
   );
-  createHotkeySequence(removeBackgroundHotkeySequence, () =>
+  createHotkey(removeBackgroundHotkeySequence, () =>
     navigate({
       to: "/$orgSlug/remove-background",
       params: { orgSlug: context().organization.slug },
     }),
   );
-  createHotkeySequence(invitesHotkeySequence, () =>
+  createHotkey(invitesHotkeySequence, () =>
     navigate({ to: "/$orgSlug/invites", params: { orgSlug: context().organization.slug } }),
   );
 
@@ -61,7 +57,7 @@ function RouteComponent() {
             params={{ orgSlug: context().organization.slug }}
             activeOptions={{ exact: true }}
           >
-            home · {formatHotkeySequence(homeHotkeySequence).toLocaleLowerCase()}
+            home · {formatForDisplay(homeHotkeySequence).toLocaleLowerCase()}
           </ButtonLink>
           <ButtonLink
             variant="link"
@@ -69,7 +65,7 @@ function RouteComponent() {
             params={{ orgSlug: context().organization.slug }}
           >
             remove background ·{" "}
-            {formatHotkeySequence(removeBackgroundHotkeySequence).toLocaleLowerCase()}
+            {formatForDisplay(removeBackgroundHotkeySequence).toLocaleLowerCase()}
           </ButtonLink>
           <ButtonLink
             variant="link"
@@ -83,7 +79,7 @@ function RouteComponent() {
             to="/$orgSlug/invites"
             params={{ orgSlug: context().organization.slug }}
           >
-            invites · {formatHotkeySequence(invitesHotkeySequence).toLocaleLowerCase()}
+            invites · {formatForDisplay(invitesHotkeySequence).toLocaleLowerCase()}
           </ButtonLink>
         </nav>
       </div>

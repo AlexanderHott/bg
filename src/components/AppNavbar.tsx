@@ -1,8 +1,4 @@
-import {
-  createHotkeySequence,
-  formatHotkeySequence,
-  type HotkeySequence,
-} from "@tanstack/solid-hotkeys";
+import { createHotkey, formatForDisplay, type HotkeySequence } from "@tanstack/solid-hotkeys";
 import { useNavigate } from "@tanstack/solid-router";
 import { useServerFn } from "@tanstack/solid-start";
 
@@ -23,12 +19,10 @@ export function AppNavbar() {
   const organizationsHotkeySequence = ["O", "L"] satisfies HotkeySequence;
   const createOrganizationHotkeySequence = ["O", "C"] satisfies HotkeySequence;
   const settingsHotkeySequence = ["G", "S"] satisfies HotkeySequence;
-  createHotkeySequence(signOutHotkeySequence, () => signOutHandler());
-  createHotkeySequence(organizationsHotkeySequence, () => navigate({ to: "/" }));
-  createHotkeySequence(createOrganizationHotkeySequence, () =>
-    navigate({ to: "/create-organization" }),
-  );
-  createHotkeySequence(settingsHotkeySequence, () => navigate({ to: "/settings" }));
+  createHotkey(signOutHotkeySequence, () => signOutHandler());
+  createHotkey(organizationsHotkeySequence, () => navigate({ to: "/" }));
+  createHotkey(createOrganizationHotkeySequence, () => navigate({ to: "/create-organization" }));
+  createHotkey(settingsHotkeySequence, () => navigate({ to: "/settings" }));
 
   return (
     <header class="bg-background border-b">
@@ -38,18 +32,18 @@ export function AppNavbar() {
       >
         <div class="flex items-center gap-3 sm:gap-4">
           <ButtonLink variant="link" class="font-semibold" to="/">
-            bg · {formatHotkeySequence(organizationsHotkeySequence).toLocaleLowerCase()}
+            bg · {formatForDisplay(organizationsHotkeySequence).toLocaleLowerCase()}
           </ButtonLink>
           <ButtonLink variant="link" to="/">
-            organizations · {formatHotkeySequence(organizationsHotkeySequence).toLocaleLowerCase()}
+            organizations · {formatForDisplay(organizationsHotkeySequence).toLocaleLowerCase()}
           </ButtonLink>
           <ButtonLink variant="link" to="/settings">
-            settings · {formatHotkeySequence(settingsHotkeySequence).toLocaleLowerCase()}
+            settings · {formatForDisplay(settingsHotkeySequence).toLocaleLowerCase()}
           </ButtonLink>
         </div>
 
         <Button variant="secondary" onClick={signOutHandler}>
-          sign out · {formatHotkeySequence(signOutHotkeySequence).toLocaleLowerCase()}
+          sign out · {formatForDisplay(signOutHotkeySequence).toLocaleLowerCase()}
         </Button>
       </nav>
     </header>
