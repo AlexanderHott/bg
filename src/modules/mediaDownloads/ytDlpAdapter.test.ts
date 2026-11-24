@@ -109,6 +109,28 @@ test("cancellation stops subprocess descendants", async () => {
   }
 });
 
+test("failures keep the downloader's stderr as the cause for worker logs", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "bg-process-test-"));
+  const stderr = "ERROR: [youtube] abc: Sign in to confirm you're not a bot.";
+  try {
+    const failure = runMediaProcess({
+      executable: process.execPath,
+      args: ["-e", `console.error(${JSON.stringify(stderr)}); process.exit(1)`],
+      cwd,
+      signal: new AbortController().signal,
+      timeoutMs: 5_000,
+      onLine: async () => {},
+    });
+    await expect(failure).rejects.toMatchObject({
+      code: "unavailable",
+      message: "The source is unavailable, unsupported, or requires authentication.",
+      cause: stderr,
+    });
+  } finally {
+    await rm(cwd, { recursive: true, force: true });
+  }
+});
+
 test("a failed metadata consumer stops the producer", async () => {
   const cwd = await mkdtemp(join(tmpdir(), "bg-process-test-"));
   try {

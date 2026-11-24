@@ -52,8 +52,9 @@ export class MediaError extends Error {
   constructor(
     public readonly code: "unavailable" | "needs_selection" | "limit" | "network" | "worker_lost",
     message: string,
+    options?: ErrorOptions,
   ) {
-    super(message);
+    super(message, options);
   }
 }
 
