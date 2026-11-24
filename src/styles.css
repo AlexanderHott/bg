@@ -17,6 +17,15 @@ body {
   margin: 0;
 }
 
+/* iOS zooms into fields under 16px on focus. Unlayered so it beats `text-sm`. */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 1rem;
+  }
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

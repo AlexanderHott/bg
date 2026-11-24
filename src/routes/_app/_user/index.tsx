@@ -1,13 +1,13 @@
 import {
   createHotkeys,
   DEFAULT_SEQUENCE_TIMEOUT,
-  formatForDisplay,
   type HotkeySequence,
 } from "@tanstack/solid-hotkeys";
 import { createFileRoute } from "@tanstack/solid-router";
 import { createMemo, For, onCleanup, Show } from "solid-js";
 
 import { ButtonLink } from "@/components/ui/ButtonLink";
+import { HotkeyHint } from "@/components/ui/HotkeyHint";
 import { listOrganizationsFn } from "@/modules/organizations/serverFunctions";
 
 export const Route = createFileRoute("/_app/_user/")({
@@ -54,7 +54,8 @@ function RouteComponent() {
           <p class="text-muted-foreground mt-1 text-sm">Choose where you want to work.</p>
         </div>
         <ButtonLink variant="link" to="/create-organization">
-          create organization · o c
+          create organization
+          <HotkeyHint hotkey={["O", "C"]} />
         </ButtonLink>
       </div>
 
@@ -69,7 +70,8 @@ function RouteComponent() {
               </p>
             </div>
             <ButtonLink variant="link" to="/create-organization">
-              create organization · o c
+              create organization
+              <HotkeyHint hotkey={["O", "C"]} />
             </ButtonLink>
           </div>
         }
@@ -83,7 +85,8 @@ function RouteComponent() {
                   <div class="text-muted-foreground truncate text-sm">/{organization.slug}</div>
                 </div>
                 <ButtonLink variant="link" to="/$orgSlug" params={{ orgSlug: organization.slug }}>
-                  open · {formatForDisplay(sequence).toLocaleLowerCase()}
+                  open
+                  <HotkeyHint hotkey={sequence} />
                 </ButtonLink>
               </li>
             )}

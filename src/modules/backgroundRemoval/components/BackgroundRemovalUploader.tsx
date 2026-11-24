@@ -1,9 +1,10 @@
 import { Dialog } from "@kobalte/core/dialog";
 import { CloudUpload, X } from "@lucide/solid";
-import { createHotkey, formatForDisplay, type RegisterableHotkey } from "@tanstack/solid-hotkeys";
+import { createHotkey, type RegisterableHotkey } from "@tanstack/solid-hotkeys";
 import { createMemo, createSignal, For, onSettled, Show } from "solid-js";
 
 import { Button } from "@/components/ui/Button";
+import { HotkeyHint } from "@/components/ui/HotkeyHint";
 import type { ReadyFile } from "@/modules/files/files";
 import { SUPPORTED_IMAGE_MEDIA_TYPES } from "@/modules/files/images";
 import { formatBytes } from "@/modules/files/imageUpload";
@@ -297,7 +298,8 @@ export function BackgroundRemovalUploader(props: {
               </div>
               <div class="bg-muted/20 flex shrink-0 flex-col gap-3 border-t p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
                 <Button variant="ghost" disabled={batch.isUploading()} onClick={chooseFiles}>
-                  + add more · {formatForDisplay(addMoreHotkey).toLocaleLowerCase()}
+                  + add more
+                  <HotkeyHint hotkey={addMoreHotkey} />
                 </Button>
                 <div class="flex gap-2 [&>button]:flex-1 sm:[&>button]:flex-none">
                   <Show
@@ -305,11 +307,12 @@ export function BackgroundRemovalUploader(props: {
                     fallback={
                       <>
                         <Button variant="outline" onClick={close}>
-                          cancel · esc
+                          cancel
+                          <HotkeyHint hotkey="Escape" />
                         </Button>
                         <Button disabled={pendingCount() === 0} onClick={() => void upload()}>
-                          upload {pendingCount()} {pendingCount() === 1 ? "image" : "images"} ·{" "}
-                          {formatForDisplay(uploadHotkey).toLocaleLowerCase()}
+                          upload {pendingCount()} {pendingCount() === 1 ? "image" : "images"}
+                          <HotkeyHint hotkey={uploadHotkey} />
                         </Button>
                       </>
                     }

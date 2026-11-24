@@ -1,5 +1,4 @@
 import { FieldApi, FormApi } from "@tanstack/form-core";
-import { formatForDisplay } from "@tanstack/solid-hotkeys";
 import { useNavigate } from "@tanstack/solid-router";
 import { useServerFn } from "@tanstack/solid-start";
 import * as v from "valibot";
@@ -10,6 +9,7 @@ import {
   createFormSubmission,
   SUBMIT_HOTKEY,
 } from "@/components/forms/FormControls";
+import { HotkeyHint } from "@/components/ui/HotkeyHint";
 import { useField, useForm } from "@/lib/form";
 
 import { createAndJoinOrganizationFn } from "../serverFunctions";
@@ -88,7 +88,8 @@ export function CreateOrganizationForm() {
         />
         <FormTextField label="slug" type="text" autocomplete="off" field={slug()} />
         <FormSubmitButton {...submission()}>
-          create · {formatForDisplay(SUBMIT_HOTKEY).toLocaleLowerCase()}
+          create
+          <HotkeyHint hotkey={SUBMIT_HOTKEY} />
         </FormSubmitButton>
       </form>
     </div>

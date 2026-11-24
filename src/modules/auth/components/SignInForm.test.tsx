@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@tanstack/solid-hotkeys", () => ({
   createHotkey: (hotkey: { key: string } | string[], callback: () => unknown) =>
     mocks.shortcuts.set(Array.isArray(hotkey) ? hotkey.join(",") : hotkey.key, callback),
-  formatForDisplay: () => "shortcut",
+  createFormatForDisplay: () => () => "shortcut",
 }));
 
 vi.mock("@tanstack/solid-router", () => ({

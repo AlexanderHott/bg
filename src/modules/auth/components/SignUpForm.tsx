@@ -1,5 +1,5 @@
 import { FieldApi, FormApi, revalidateLogic } from "@tanstack/form-core";
-import { createHotkey, formatForDisplay, type HotkeySequence } from "@tanstack/solid-hotkeys";
+import { createHotkey, type HotkeySequence } from "@tanstack/solid-hotkeys";
 import { Link, useLocation, useNavigate, useRouter } from "@tanstack/solid-router";
 import { useServerFn } from "@tanstack/solid-start";
 import { createSignal, Show } from "solid-js";
@@ -11,6 +11,7 @@ import {
   SUBMIT_HOTKEY,
 } from "@/components/forms/FormControls";
 import { buttonVariants } from "@/components/ui/Button";
+import { HotkeyHint } from "@/components/ui/HotkeyHint";
 import { useField, useForm } from "@/lib/form";
 import { destinationAfterAuth, inviteTokenFromHash } from "@/modules/organizations/inviteToken";
 
@@ -117,7 +118,8 @@ export function SignupForm() {
             <FormTextField label="password" type="password" field={password()} />
             <FormTextField label="confirm password" type="password" field={passwordConfirm()} />
             <FormSubmitButton {...submission()}>
-              sign up · {formatForDisplay(SUBMIT_HOTKEY).toLocaleLowerCase()}
+              sign up
+              <HotkeyHint hotkey={SUBMIT_HOTKEY} />
             </FormSubmitButton>
           </form>
         }
@@ -128,7 +130,8 @@ export function SignupForm() {
       <p class="text-muted-foreground text-sm">
         already have an account?{" "}
         <Link class={buttonVariants({ variant: "link" })} to="/sign-in" hash={invite()}>
-          sign in · {formatForDisplay(signInHotkeySequence).toLocaleLowerCase()}
+          sign in
+          <HotkeyHint hotkey={signInHotkeySequence} />
         </Link>
       </p>
     </div>
