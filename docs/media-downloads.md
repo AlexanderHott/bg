@@ -28,7 +28,7 @@ Live streams, authenticated sources, private playlists, ZIP exports, and subscri
 
 ## Running the worker
 
-Compose builds the `media-worker` target for amd64 or arm64. It includes yt-dlp 2026.08.19, ffmpeg, ffprobe, and Node. yt-dlp release downloads are checksum-verified. Update the version and both checksums in `Dockerfile` together when upgrading.
+Compose builds the `media-worker` target for amd64 or arm64. It includes yt-dlp 2026.11.23, ffmpeg, ffprobe, and Node. yt-dlp release downloads are checksum-verified. Update the version and both checksums in `Dockerfile` together when upgrading.
 
 The worker has a separate disk volume, `media_scratch`, and does not load the background-removal model. Budget at least 16 GB of free disk for scratch data plus space for RustFS outputs. The scratch limit is monitored per task; the named volume does not impose a filesystem quota. The worker runs as `nobody` with a 2 GB memory limit and two CPUs in Compose.
 

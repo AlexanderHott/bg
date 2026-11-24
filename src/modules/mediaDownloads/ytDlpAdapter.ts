@@ -89,11 +89,14 @@ export function normalizeMetadata(value: unknown): MediaMetadata {
   };
 }
 
+/** Maps process stderr to a user-facing error, keeping the raw tail as `cause` for worker logs. */
 function failureFromOutput(output: string) {
+  const options = { cause: output.trim() };
   if (/Requested format is not available/i.test(output))
     return new MediaError(
       "needs_selection",
       "The selected format is no longer available. Refresh formats and choose again.",
+      options,
     );
   if (
     /unavailable|private video|removed|not available|sign in|unsupported url|no video formats|copyright|HTTP Error 403|HTTP Error 404/i.test(
@@ -103,12 +106,18 @@ function failureFromOutput(output: string) {
     return new MediaError(
       "unavailable",
       "The source is unavailable, unsupported, or requires authentication.",
+      options,
     );
   if (/larger than max|File too large|No space left/i.test(output))
-    return new MediaError("limit", "The media exceeds the download or scratch-disk limit.");
+    return new MediaError(
+      "limit",
+      "The media exceeds the download or scratch-disk limit.",
+      options,
+    );
   return new MediaError(
     "network",
     "The source could not be downloaded. It may be temporarily unavailable or rate limited.",
+    options,
   );
 }
 

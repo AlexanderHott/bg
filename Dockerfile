@@ -57,11 +57,11 @@ ADD --checksum=sha256:5600024376f572a557870a5eb0afb1e5961636bef4e1e22132025467d0
 CMD ["node", ".output/worker/index.mjs"]
 
 FROM scratch AS media-tools
-ADD --checksum=sha256:58162f9bfdc27458ea47bfcb311cf47028f17d8154a8bf7d689861d46399230a \
-    https://github.com/yt-dlp/yt-dlp/releases/download/2026.08.19/yt-dlp_linux \
+ADD --checksum=sha256:249ddb058234276bc449b9cd9492aad9f133bda5923c61a9e39983ae114ef17d \
+    https://github.com/yt-dlp/yt-dlp/releases/download/2026.11.23/yt-dlp_linux \
     /yt-dlp-amd64
-ADD --checksum=sha256:b16e4dab368a816cd05d477d698a605a6ae87ccee1c8ffd38fa21d7254141fcc \
-    https://github.com/yt-dlp/yt-dlp/releases/download/2026.08.19/yt-dlp_linux_aarch64 \
+ADD --checksum=sha256:fb847a2e4a9ddc8cf5fcfb4bb7f42ba8969ecf72068def0278074f9d300bd13c \
+    https://github.com/yt-dlp/yt-dlp/releases/download/2026.11.23/yt-dlp_linux_aarch64 \
     /yt-dlp-arm64
 
 FROM runtime AS media-worker
