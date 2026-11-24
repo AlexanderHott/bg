@@ -18,7 +18,3 @@ The rest of this document is meant to help you navigate the codebase and make ch
 - Inferred types over annotations. `any` is the enemy.
 - Comments describe how a thing is used, and move when the code moves. To be used mostly to describe functions, not to annotate every line of behavior.
 - If a rule here fights the task in front of you, say so loudly and get a human sign-off before breaking it.
-
-## Additional tips
-
-- Don't verify with browsers or computer use unless the user explicitly agrees or requests it.

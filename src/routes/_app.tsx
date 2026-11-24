@@ -24,7 +24,7 @@ function RouteComponent() {
 
   return (
     <div
-      class="bg-muted/30 min-h-screen"
+      class="bg-muted/30 min-h-dvh"
       style={{ "--app-navbar-height": navbar.height() ?? "calc(3.5rem + 1px)" }}
     >
       <div ref={navbar.ref} class="sticky top-0 z-30">

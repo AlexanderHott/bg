@@ -1,7 +1,6 @@
 import { FieldApi, FormApi } from "@tanstack/form-core";
 import {
   createHotkey,
-  formatForDisplay,
   type HotkeySequence,
   type RegisterableHotkey,
 } from "@tanstack/solid-hotkeys";
@@ -17,6 +16,7 @@ import {
   SUBMIT_HOTKEY,
 } from "@/components/forms/FormControls";
 import { Button, buttonVariants } from "@/components/ui/Button";
+import { HotkeyHint } from "@/components/ui/HotkeyHint";
 import { Separator } from "@/components/ui/Separator";
 import { useField, useForm } from "@/lib/form";
 import { destinationAfterAuth, inviteTokenFromHash } from "@/modules/organizations/inviteToken";
@@ -123,7 +123,8 @@ export function SignInForm() {
           field={password()}
         />
         <FormSubmitButton {...submission()}>
-          sign in · {formatForDisplay(SUBMIT_HOTKEY).toLocaleLowerCase()}
+          sign in
+          <HotkeyHint hotkey={SUBMIT_HOTKEY} />
         </FormSubmitButton>
       </form>
 
@@ -135,15 +136,17 @@ export function SignInForm() {
         disabled={isPasskeyPending()}
         onClick={signInWithPasskey}
       >
-        {isPasskeyPending()
-          ? "..."
-          : `use passkey · ${formatForDisplay(passkeyHotkey).toLocaleLowerCase()}`}
+        <Show when={!isPasskeyPending()} fallback="...">
+          use passkey
+          <HotkeyHint hotkey={passkeyHotkey} />
+        </Show>
       </Button>
 
       <p class="text-muted-foreground text-sm">
         don't have an account?{" "}
         <Link class={buttonVariants({ variant: "link" })} to="/sign-up" hash={invite()}>
-          sign up · {formatForDisplay(signUpHotkeySequence).toLocaleLowerCase()}
+          sign up
+          <HotkeyHint hotkey={signUpHotkeySequence} />
         </Link>
       </p>
     </div>

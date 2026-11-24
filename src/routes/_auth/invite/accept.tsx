@@ -12,7 +12,7 @@ export const Route = createFileRoute("/_auth/invite/accept")({ component: Invite
 
 function InvitePage() {
   return (
-    <main class="mx-auto flex min-h-screen max-w-lg flex-col justify-center gap-4 p-6">
+    <main class="mx-auto flex min-h-dvh max-w-lg flex-col justify-center gap-4 p-6">
       <Errored
         fallback={(_, reset) => (
           <>

@@ -1,7 +1,8 @@
-import { createHotkey, formatForDisplay, type HotkeySequence } from "@tanstack/solid-hotkeys";
+import { createHotkey, type HotkeySequence } from "@tanstack/solid-hotkeys";
 import { createFileRoute, Outlet, redirect } from "@tanstack/solid-router";
 
 import { ButtonLink } from "@/components/ui/ButtonLink";
+import { HotkeyHint } from "@/components/ui/HotkeyHint";
 import { createElementHeight } from "@/lib/createElementHeight";
 import { getOrganizationFn } from "@/modules/organizations/serverFunctions";
 
@@ -42,13 +43,13 @@ function RouteComponent() {
 
   return (
     <div
-      class="min-h-[calc(100vh-var(--app-navbar-height))]"
+      class="min-h-[calc(100dvh-var(--app-navbar-height))]"
       style={{ "--org-navbar-height": navbar.height() ?? "calc(3rem + 1px)" }}
     >
       <div ref={navbar.ref} class="bg-background sticky top-(--app-navbar-height) z-20 border-b">
         <nav
           aria-label="Organization"
-          class="mx-auto flex min-h-12 w-full max-w-6xl flex-wrap items-center gap-x-5 gap-y-2 px-4 py-2 text-sm sm:px-6"
+          class="mx-auto flex min-h-12 w-full max-w-6xl items-center gap-x-5 gap-y-2 overflow-x-auto px-4 py-2 text-sm whitespace-nowrap sm:flex-wrap sm:px-6"
         >
           <span class="font-medium">{context().organization.name}</span>
           <ButtonLink
@@ -57,15 +58,16 @@ function RouteComponent() {
             params={{ orgSlug: context().organization.slug }}
             activeOptions={{ exact: true }}
           >
-            home · {formatForDisplay(homeHotkeySequence).toLocaleLowerCase()}
+            home
+            <HotkeyHint hotkey={homeHotkeySequence} />
           </ButtonLink>
           <ButtonLink
             variant="link"
             to="/$orgSlug/remove-background"
             params={{ orgSlug: context().organization.slug }}
           >
-            remove background ·{" "}
-            {formatForDisplay(removeBackgroundHotkeySequence).toLocaleLowerCase()}
+            remove background
+            <HotkeyHint hotkey={removeBackgroundHotkeySequence} />
           </ButtonLink>
           <ButtonLink
             variant="link"
@@ -79,7 +81,8 @@ function RouteComponent() {
             to="/$orgSlug/invites"
             params={{ orgSlug: context().organization.slug }}
           >
-            invites · {formatForDisplay(invitesHotkeySequence).toLocaleLowerCase()}
+            invites
+            <HotkeyHint hotkey={invitesHotkeySequence} />
           </ButtonLink>
         </nav>
       </div>

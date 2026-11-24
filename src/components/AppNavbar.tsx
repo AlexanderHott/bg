@@ -1,4 +1,4 @@
-import { createHotkey, formatForDisplay, type HotkeySequence } from "@tanstack/solid-hotkeys";
+import { createHotkey, type HotkeySequence } from "@tanstack/solid-hotkeys";
 import { useNavigate } from "@tanstack/solid-router";
 import { useServerFn } from "@tanstack/solid-start";
 
@@ -6,6 +6,7 @@ import { signOutFn } from "@/modules/auth/serverFunctions";
 
 import { Button } from "./ui/Button";
 import { ButtonLink } from "./ui/ButtonLink";
+import { HotkeyHint } from "./ui/HotkeyHint";
 
 export function AppNavbar() {
   const signOut = useServerFn(signOutFn);
@@ -32,18 +33,22 @@ export function AppNavbar() {
       >
         <div class="flex items-center gap-3 sm:gap-4">
           <ButtonLink variant="link" class="font-semibold" to="/">
-            bg · {formatForDisplay(organizationsHotkeySequence).toLocaleLowerCase()}
+            bg
+            <HotkeyHint hotkey={organizationsHotkeySequence} />
           </ButtonLink>
-          <ButtonLink variant="link" to="/">
-            organizations · {formatForDisplay(organizationsHotkeySequence).toLocaleLowerCase()}
+          <ButtonLink variant="link" class="max-sm:hidden" to="/">
+            organizations
+            <HotkeyHint hotkey={organizationsHotkeySequence} />
           </ButtonLink>
           <ButtonLink variant="link" to="/settings">
-            settings · {formatForDisplay(settingsHotkeySequence).toLocaleLowerCase()}
+            settings
+            <HotkeyHint hotkey={settingsHotkeySequence} />
           </ButtonLink>
         </div>
 
         <Button variant="secondary" onClick={signOutHandler}>
-          sign out · {formatForDisplay(signOutHotkeySequence).toLocaleLowerCase()}
+          sign out
+          <HotkeyHint hotkey={signOutHotkeySequence} />
         </Button>
       </nav>
     </header>

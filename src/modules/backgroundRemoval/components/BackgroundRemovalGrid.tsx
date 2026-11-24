@@ -53,7 +53,7 @@ export function BackgroundRemovalGrid(props: {
 
   return (
     <section class="flex flex-col gap-5" aria-label="Background removal images">
-      <div class="bg-background sticky top-[calc(var(--app-navbar-height,0px)+var(--org-navbar-height,0px))] z-10 -my-4 flex flex-col gap-5 py-4">
+      <div class="bg-background top-[calc(var(--app-navbar-height,0px)+var(--org-navbar-height,0px))] z-10 -my-4 flex flex-col gap-5 py-4 sm:sticky">
         <div class="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
           <div class="flex items-baseline gap-3">
             <h2 class="font-medium">your images</h2>
