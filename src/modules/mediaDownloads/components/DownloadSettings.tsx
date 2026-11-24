@@ -9,7 +9,10 @@ export function BatchSettings(props: {
   simple?: boolean;
 }) {
   return (
-    <fieldset disabled={props.disabled} class="grid gap-3 disabled:opacity-60 sm:grid-cols-3">
+    <fieldset
+      disabled={props.disabled}
+      class="grid min-w-0 grid-cols-1 gap-3 disabled:opacity-60 sm:grid-cols-3"
+    >
       <label class="flex flex-col gap-1 text-sm">
         Download
         <select
