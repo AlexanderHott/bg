@@ -182,44 +182,10 @@ services:
     networks:
       - app
 
-  # Temporary: copies the old MinIO volume into RustFS. Remove with minio-legacy and minio_data once migrated.
-  rustfs-migrate:
-    image: rustfs/rc:v0.1.38
-    depends_on:
-      rustfs-init:
-        condition: service_completed_successfully
-      minio-legacy:
-        condition: service_started
-    environment:
-      RUSTFS_BUCKET: bg-files
-      RUSTFS_ENDPOINT: http://rustfs:9000
-      LEGACY_ENDPOINT: http://minio-legacy:9000
-      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
-      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin}
-    volumes:
-      - ./infra/rustfs/migrate.sh:/migrate.sh:ro
-    entrypoint: ["/bin/sh", "/migrate.sh"]
-    networks:
-      - app
-
-  minio-legacy:
-    image: cgr.dev/chainguard/minio:latest
-    # The old volume was written as root by quay.io/minio/minio.
-    user: "0:0"
-    command: server /data
-    environment:
-      MINIO_ROOT_USER: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
-      MINIO_ROOT_PASSWORD: ${RUSTFS_SECRET_KEY:-rustfsadmin}
-    volumes:
-      - minio_data:/data
-    networks:
-      - app
-
 volumes:
   media_scratch:
   postgres_data:
   rustfs_data:
-  minio_data:
 
 networks:
   app:
