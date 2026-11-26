@@ -44,7 +44,7 @@
     "@tanstack/solid-router-devtools": "2.0.0-rc.8",
     "@tanstack/solid-start": "2.0.0-rc.10",
     "class-variance-authority": "^0.7.1",
-    "dotenv": "^17.4.2",
+    "dotenv": "^18.0.10",
     "drizzle-orm": "1.0.0-rc.6",
     "import-in-the-middle": "3.6.0",
     "onnxruntime-node": "^1.31.1",
